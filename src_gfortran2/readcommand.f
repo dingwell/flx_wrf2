@@ -431,9 +431,9 @@ c FLEXPART_WRF - check turb_option, add_sfc_level
         stop
       endif
 
-C iouttype -- convert negative values to 0; positive values to 1
+C iouttype -- convert negative values to 0; positive values to 2
       if (iouttype .lt. 0) iouttype = 0
-      if (iouttype .gt. 1) iouttype = 1
+      if (iouttype .gt. 2) iouttype = 2
 
 C Conversion of format HHHMISS to seconds
 *****************************************

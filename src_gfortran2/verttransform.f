@@ -49,7 +49,8 @@ C                              i  i   i   i   i
 
       integer ix,jy,kz,iz,n,kmin,kl,klp,ix1,jy1,ixp,jyp,ixm,jym
       save ixm,jym
-      integer method_z_compute
+      integer method_z_compute,rain_cloud_above,kz_inv
+      real lsp,convp
       real uvzlev(nuvzmax),rhoh(nuvzmax),pinmconv(nzmax)
       real ew,pint,tv,tvold,pold,const,dz1,dz2,dz,ui,vi
       real xlon,ylat,xlonr,dzdx,dzdy
@@ -326,6 +327,9 @@ C Levels, where u,v,t and q are given
                 tt(ix,jy,iz,n)=tt(ix,jy,nz,n)
                 qv(ix,jy,iz,n)=qv(ix,jy,nz,n)
                 pv(ix,jy,iz,n)=pv(ix,jy,nz,n)
+                ! AD: added 2012-12-14
+                clouds(ix,jy,iz,n)=clouds(ix,jy,nz,n)
+                ! /AD
                 rho(ix,jy,iz,n)=rho(ix,jy,nz,n)
                 goto 30
               endif
@@ -341,6 +345,10 @@ C Levels, where u,v,t and q are given
                qv(ix,jy,iz,n)=(qvh(ix,jy,kz-1,n)*dz2
      $              +qvh(ix,jy,kz,n)*dz1)/dz
                pv(ix,jy,iz,n)=(pvh(ix,jy,kz-1)*dz2+pvh(ix,jy,kz)*dz1)/dz
+               ! AD: added 2012-12-14
+               cldfra(ix,jy,iz,n)=(cldfrah(ix,jy,kz-1,n)*dz2+
+     +         cldfrah(ix,jy,kz,n)*dz1)/dz
+               ! /AD
                rho(ix,jy,iz,n)=(rhoh(kz-1)*dz2+rhoh(kz)*dz1)/dz
                kmin=kz
                goto 30
@@ -719,6 +727,56 @@ c          jy=0
 c          do 95 ix=0,nxmin1
 c95          ww(ix,jy,iz,n)=wdummy
       endif
+
+C AD: adopted from FLEXPART 9.02:
+C create a cloud and rainout/washout field, clouds occur where 
+C cldfra > 0.5
+c total cloudheight is stored at level 0
+      do jy=0,nymin1
+        do ix=0,nxmin1
+          rain_cloud_above=0
+          lsp=lsprec(ix,jy,1,n)
+          convp=convprec(ix,jy,1,n)
+          
+          ! AD: debugging, check for INF or NAN:
+          !     could probably be removed w/o issues
+          if(convp.gt.10000.or.convp.eq.convp+1.0) then
+            write(*,*) 'lsp,convp:',lsp,convp
+            write(*,*) 'jy,ix:',jy,ix
+            stop
+          end if
+
+          cloudsh(ix,jy,1,n)=0
+          do kz_inv=1,nz-1
+            kz=nz-kz_inv+1
+            clouds(ix,jy,kz,n)=0
+            if (cldfra(ix,jy,kz,n).ge.0.5) then   ! IN CLOUD
+              if ((lsp.gt.0.01).or.(convp.gt.0.01)) then  ! PRECIPITATION
+                rain_cloud_above=1
+                cloudsh(ix,jy,1,n)=cloudsh(ix,jy,1,n)+
+     +          (height(kz)-height(kz-1))
+                if (lsp.ge.convp) then  ! LSP DOMINATED
+                  clouds(ix,jy,kz,n)=3
+                else                    ! CONV DOMINATED
+                  clouds(ix,jy,kz,n)=2
+                endif
+              else                      ! NO OR TOO LOW PRECIPITATION
+                clouds(ix,jy,kz,n)=1
+              endif
+            else                      ! NO CLOUD
+              if ( rain_cloud_above.eq.1 ) then   ! WASHOUT
+                if (lsp.ge.convp) then  ! LSP DOMINTATED
+                  clouds(ix,jy,kz,n)=5
+                else
+                  clouds(ix,jy,kz,n)=4  ! CONVP DOMINATED
+                endif
+              endif!washout
+            endif!cloud/nocloud
+          end do!kz_inv
+        end do!ix
+      end do!jy
+
+                    
 
 
 

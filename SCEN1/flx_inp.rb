@@ -12,21 +12,27 @@ require 'fileutils'
 #  - see FLXPART_WRF documents for further instructions
 
 # WRF initialization time (in local time!!! groan!!)
-wrf_init=[2011,3,12]   # needed to located WRF output directory
+#wrf_init=[2011,3,12]   # needed to located WRF output directory
                        # - this variable only used in the calling
                        # - script and helps construct name of
                        # - WRF output directory
+wrf_init=[]
 
 # Output date for First file
-first_wrfout_time = Time.utc(2011,3,14,18,0,20)
+#first_wrfout_time = Time.utc(2011,3,14,18,0,20)
+first_wrfout_time = Time.utc(2010,06,01,12,00,00)
                   # this is also used within this script only
                   # - I write out WRF output every so many hours
                   # - this var is used to select the first file
                   # - i want to use for running FLXPART
 
+# Time between output files [s]
+#step_wrfout_time = 86400 # 1 day, i.e. each file should have 24 record entries
+step_wrfout_time = 3600 # 1 hour, i.e. one record entry per file
+
 # Starting date and time for FLXPART simulation (in UTC, please... so sorry)
-flx_start = Time.utc(2011,3,15,6,0,0)
-flx_end   = Time.utc(2011,3,15,17,0,0)
+flx_start = Time.utc(2010,06,01,12,0,0)
+flx_end   = Time.utc(2010,06,07,23,0,0)
           # These specify start and end of release of particles
           # - currently it is set to be the same as
           # - start and end of FLXPART run
@@ -35,12 +41,13 @@ flx_end   = Time.utc(2011,3,15,17,0,0)
           # - end of release can be different to stipulate a
           # - a puff kind of release 
 
-# WRF domains for use with FLXPART
-doms=%w{d03}
+# WRF domains for use with FLXPART, innermost domain last
+doms=%w{d01 d02 d03}
 
 # Where is WRF output located?
 #wrf_out_dir=File.join(ENV["HOME"],"Wrf-fks_coarse/out",wrf_init.join("/"))
-wrf_out_dir=File.join(ENV["HOME"],"WRF-FKS/out",wrf_init.join("/"))
+#wrf_out_dir=File.join(ENV["HOME"],"WRF-FKS/out",wrf_init.join("/"))
+wrf_out_dir=File.join(ENV["HOME"],"data/wrf_europe/neurope5")
 
 # Location of template files
 cmd_template="./options/COMMAND.template"
@@ -75,7 +82,8 @@ doms.each do |dom|
   while File.exist?(fname=flx.wrf_out_fil(dom,time_at_output))
     break if time_at_output > flx_end
     times = flx.write_wrf_times(fname, fout)
-    time_at_output+= 86400 # advance 1 day
+    #time_at_output+= 86400 # advance 1 day
+    time_at_output+= step_wrfout_time
     print flx_end,"\t", time_at_output, "\n"
   end
   flx.write_wrf_paths(pathfil,dom,wrf_out_dir,first)

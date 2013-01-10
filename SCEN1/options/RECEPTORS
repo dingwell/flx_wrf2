@@ -6,26 +6,26 @@
 *                                                                              *
 ********************************************************************************
 1.  ----------------  4X,A16
-    R01               NAME OF RECEPTOR POINT
+    ARLANDA           NAME OF RECEPTOR POINT
     RECEPTORNAME
 
 2.  ------.----       4X,F11.4
-       139.7       GEOGRAFICAL LONGITUDE
+        17.9379       GEOGRAFICAL LONGITUDE
     XRECEPTOR 
 
 3.  ------.----       4X,F11.4
-       35.7       GEOGRAFICAL LATITUDE
+        59.6470       GEOGRAFICAL LATITUDE
     YRECEPTOR  
 ================================================================================
 1.  ----------------  4X,A16
-    R02               NAME OF RECEPTOR POINT
+    OSLO              NAME OF RECEPTOR POINT
     RECEPTORNAME
 
 2.  ------.----       4X,F11.4
-       140.5       GEOGRAFICAL LONGITUDE
+        10.7463       GEOGRAFICAL LONGITUDE
     XRECEPTOR 
 
 3.  ------.----       4X,F11.4
-       36.4       GEOGRAFICAL LATITUDE
+        59.9183       GEOGRAFICAL LATITUDE
     YRECEPTOR  
 ================================================================================

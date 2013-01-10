@@ -40,17 +40,19 @@
 ********************************************************************************
 
 
-
 *****************************************************************
 C Variables defining where FLEXPART input/output files are stored
 *****************************************************************
 
       character path(numpath+2*maxnests)*120
       integer len(numpath+2*maxnests)
+      integer ncid,ncidn
 
 C path                    path names needed for trajectory model
 C len                     length of path names needed for trajectory model
-
+C ncid                    file handle of output file (only for netCDF)
+C ncidn                   file handle of nested output file (netCDF)
+C                         (note that only one output nest is supported)
 
 *********************************************************
 C Variables defining the general model run specifications
@@ -124,9 +126,10 @@ C     (See comments in verttransform.f)
 C sfc_option determines how select surface values are computed
 C          0 = sfc_option_diagnosed  -- default method of computing u*, hflux, and pblh
 C          1 = sfc_option_wrf        -- u*, hflux, and pblh read in from WRF
-C iouttype determines binary or ascii output
+C iouttype determines binary, ascii or netcdf output
 C          0 = binary output
 C          1 = ascii output
+C          2 = netcdf
 
 C ind_rel and ind_samp  are used within the code to change between mass and mass-mix (see readcommand.f)
 
@@ -218,7 +221,8 @@ C dryvel [m/s]            constant dry deposition velocity
 
 C PARTICLE DEPOSITION
 C density [kg/m3]         density of particles
-C dquer [m]               mean diameter of particles
+C dquer [µm]              mean diameter of particles (given in m in SPECIES,
+C                         FLEXPART-WRF converts this to µm)
 C dsigma                  dsigma=10 or dsigma=0.1 means that 68% of the
 C                         mass are between 0.1*dquer and 10*dquer
 
@@ -384,11 +388,14 @@ C 3d fields
       real ww(0:nxmax-1,0:nymax-1,nzmax,2)
       real tt(0:nxmax-1,0:nymax-1,nzmax,2)
       real qv(0:nxmax-1,0:nymax-1,nzmax,2)
+      integer clouds(0:nxmax-1,0:nymax-1,nzmax,2)
+      real cldfra(0:nxmax-1,0:nymax-1,nzmax,2)
       real pv(0:nxmax-1,0:nymax-1,nzmax,2)
       real rho(0:nxmax-1,0:nymax-1,nzmax,2)
       real drhodz(0:nxmax-1,0:nymax-1,nzmax,2)
       real tth(0:nxmax-1,0:nymax-1,nuvzmax,2)
       real qvh(0:nxmax-1,0:nymax-1,nuvzmax,2)
+      real cldfrah(0:nxmax-1,0:nymax-1,nuvzmax,2)
       real pph(0:nxmax-1,0:nymax-1,nuvzmax,2)
       real zzh(0:nxmax-1,0:nymax-1,nwzmax+1,2)
 
@@ -396,12 +403,15 @@ C uu,vv,ww [m/2]       wind components in x,y and z direction
 C uupol,vvpol [m/s]    wind components in polar stereographic projection
 C tt [K]               temperature data
 C qv                   specific humidity data
+C clouds               cloud type in grid cell [0-5]
+C cldfra               cloud fraction in grid cell [0-1]
 C pv (pvu)             potential vorticity
 C rho [kg/m3]          air density
 C drhodz [kg/m2]       vertical air density gradient
-C tth,qvh              tth,qvh on original eta levels
+C tth,qvh              tt,qv on original eta levels
 C pph                  pressure (Pa) on original wrf "T-grid" levels
 C zzh                  height (m MSL) on original wrf "W-grid" levels
+C cldfrah              cloud fraction on original wrf "T-grid" levels (1 or 0)
 
 C 2d fields
 ***********
@@ -410,6 +420,7 @@ C 2d fields
       real sd(0:nxmax-1,0:nymax-1,1,2)
       real msl(0:nxmax-1,0:nymax-1,1,2)
       real tcc(0:nxmax-1,0:nymax-1,1,2)
+      real cloudsh(0:nxmax-1,0:nymax-1,1,2)
       real u10(0:nxmax-1,0:nymax-1,1,2)
       real v10(0:nxmax-1,0:nymax-1,1,2)
       real tt2(0:nxmax-1,0:nymax-1,1,2)
@@ -425,11 +436,14 @@ C 2d fields
       real tropopause(0:nxmax-1,0:nymax-1,1,2)
       real oli(0:nxmax-1,0:nymax-1,1,2)
       real diffk(0:nxmax-1,0:nymax-1,1,2)
+      real alsprec(0:nxmax-1,0:nymax-1,1,2)
+      real aconvprec(0:nxmax-1,0:nymax-1,1,2)
 
 C ps                   surface pressure
 C sd                   snow depth
 C msl                  mean sea level pressure
 C tcc                  total cloud cover
+C cloudsh              cloud height (depth)
 C u10                  10 meter u
 C v10                  10 meter v
 C tt2                  2 meter temperature
@@ -445,6 +459,8 @@ C hmix  [m]            mixing height
 C tropopause [m]       altitude of thermal tropopause
 C oli [m]              inverse Obukhov length (1/L)
 C diffk [m2/s]         diffusion coefficient at reference height
+C alsprec [mm]         accumulated prec. (used to get lsprec, convprec)
+C aconvprec [mm]       accumulated prec. (used to get lsprec, convprec)
 
 
       real vdep(0:nxmax-1,0:nymax-1,maxspec,2)
@@ -526,11 +542,14 @@ C 3d nested fields
       real wwn(0:nxmaxn-1,0:nymaxn-1,nzmax,2,maxnests)
       real ttn(0:nxmaxn-1,0:nymaxn-1,nzmax,2,maxnests)
       real qvn(0:nxmaxn-1,0:nymaxn-1,nzmax,2,maxnests)
+      integer cloudsn(0:nxmaxn-1,0:nymaxn-1,nzmax,2,maxnests)
+      real cldfran(0:nxmaxn-1,0:nymaxn-1,nzmax,2,maxnests)
       real pvn(0:nxmaxn-1,0:nymaxn-1,nzmax,2,maxnests)
       real rhon(0:nxmaxn-1,0:nymaxn-1,nzmax,2,maxnests)
       real drhodzn(0:nxmaxn-1,0:nymaxn-1,nzmax,2,maxnests)
       real tthn(0:nxmaxn-1,0:nymaxn-1,nuvzmax,2,maxnests)
       real qvhn(0:nxmaxn-1,0:nymaxn-1,nuvzmax,2,maxnests)
+      real cldfrahn(0:nxmaxn-1,0:nymaxn-1,nzmax,2,maxnests)
       real pphn(0:nxmaxn-1,0:nymaxn-1,nuvzmax,2,maxnests)
       real zzhn(0:nxmaxn-1,0:nymaxn-1,nwzmax+1,2,maxnests)
 
@@ -541,6 +560,7 @@ C 2d nested fields
       real sdn(0:nxmaxn-1,0:nymaxn-1,1,2,maxnests)
       real msln(0:nxmaxn-1,0:nymaxn-1,1,2,maxnests)
       real tccn(0:nxmaxn-1,0:nymaxn-1,1,2,maxnests)
+      real cloudsnh(0:nxmaxn-1,0:nymaxn-1,1,2,maxnests)
       real u10n(0:nxmaxn-1,0:nymaxn-1,1,2,maxnests)
       real v10n(0:nxmaxn-1,0:nymaxn-1,1,2,maxnests)
       real tt2n(0:nxmaxn-1,0:nymaxn-1,1,2,maxnests)
@@ -556,6 +576,8 @@ C 2d nested fields
       real tropopausen(0:nxmaxn-1,0:nymaxn-1,1,2,maxnests)
       real olin(0:nxmaxn-1,0:nymaxn-1,1,2,maxnests)
       real diffkn(0:nxmaxn-1,0:nymaxn-1,1,2,maxnests)
+      real alsprecn(0:nxmaxn-1,0:nymaxn-1,1,2,maxnests)
+      real aconvprecn(0:nxmaxn-1,0:nymaxn-1,1,2,maxnests)
 
       real vdepn(0:nxmaxn-1,0:nymaxn-1,maxspec,2,maxnests)
 
@@ -618,6 +640,9 @@ C Variables characterizing the output grid and containing the model results
       logical DEP,DRYDEP,DRYDEPSPEC(maxspec),WETDEP
       real outgrid_swlon,outgrid_swlat,outgrid_nelon,outgrid_nelat 
       real outgridn_swlon,outgridn_swlat,outgridn_nelon,outgridn_nelat
+      integer nccovid,ncravid,ncwdvid,ncddvid
+      integer ncret   
+
 
 C numxgrid,numygrid       number of grid points in x,y-direction
 C numxgridn,numygridn     number of grid points in x,y-direction for nested output grid
@@ -639,7 +664,12 @@ C DEP                     .true., if either dry or wet depos. is switched on
 C DRYDEP                  .true., if dry deposition is switched on
 C DRYDEPSPEC              .true., if dry deposition is switched on for that species
 C WETDEP                  .true., if wet deposition is switched on
-
+C
+C nccovid                 netcdf variable ID of concentration grid
+C ncravid                 netcdf variable ID of mixing ratio grid
+C ncddvid                 netcdf variable ID of drydep grid
+C ncwdvid                 netcdf variable ID of wetdep grid
+C ncret                   netcdf return values, used to check for errors
 
 C For forward runs, the 4th dimension of gridunc (3rd dimension of
 C wetgridunc and drygridunc) must be maxspec; for backward runs it must be
@@ -779,12 +809,14 @@ C rannumb                 field of normally distributed random numbers
      +iflux,idt,nclass,memtime,memind,nlev_ec,npart,loutstep,loutaver,
      +loutsample,method,mdomainfill,numxgrid,numygrid,numzgrid,nspec,
      +numxgridn,numygridn,kindz,
-     +link,numreceptor,lsubgrid,lconvection,lagespectra,mquasilag,
-     +nested_output,nx_we,ny_sn,numcolumn_we,numcolumn_sn,numcolumn,
-     +ind_source,ind_receptor,numparticlecount,
+     +link,numreceptor,lsubgrid,lconvection,lagespectra,
+     +mquasilag,nested_output,nx_we,ny_sn,numcolumn_we,numcolumn_sn,
+     +numcolumn,ind_source,ind_receptor,numparticlecount,
      +ind_rel,ind_samp,
      +turb_option,method_w_terrain_correction,
-     +map_proj_id,map_proj_method,sfc_option,iouttype
+     +map_proj_id,map_proj_method,sfc_option,iouttype,
+     +ncid,ncidn,nccovid,ncravid,ncwdvid,ncddvid,
+     +clouds,cloudsn
 
       common /globalr/             ! REAL
      +xtra1,ytra1,ztra1,xmass1,decaytime,decay,rannumb,
@@ -798,9 +830,11 @@ c    +akm,bkm,akz,bkz,aknew,bknew,
      +switchsouthg,switchnorthg,southpolemap,northpolemap,
      +xreceptor,yreceptor,creceptor,receptorarea,
      +receptor_lon,receptor_lat,
-     +uu,vv,uupol,vvpol,ww,tt,qv,pv,ps,oro,lsm,xlanduse,sd,msl,tcc,
-     +u10,v10,tt2,td2,diffk,vdep,lsprec,convprec,xlandinvent,z0,
-     +tth,qvh,pph,zzh,
+     +uu,vv,uupol,vvpol,ww,tt,qv,cloudsh,cldfra,pv,ps,oro,lsm,
+     +xlanduse,sd,msl,tcc,
+     +u10,v10,tt2,td2,diffk,vdep,lsprec,convprec,alsprec,aconvprec,
+     +xlandinvent,z0,
+     +tth,qvh,cldfrah,pph,zzh,
      +sshf,ssr,surfstr,ustar,wstar,hmix,tropopause,oli,
      +area_hour,point_hour,area_dow,point_dow,
      +xpoint1,ypoint1,xpoint2,ypoint2,zpoint1,zpoint2,xmass,
@@ -829,10 +863,11 @@ c    +akm,bkm,akz,bkz,aknew,bknew,
      +numbnests,nxn,nyn,
      +m_grid_id, m_parent_grid_id, m_parent_grid_ratio,
      +l_parent_nest_id,i_parent_start, j_parent_start,
-     +uun,vvn,wwn,ttn,qvn,pvn,psn,oron,lsmn,
+     +uun,vvn,wwn,ttn,qvn,cloudsnh,cldfran,pvn,psn,oron,lsmn,
      +xlandusen,xmet0n,ymet0n,dxn,dyn,rhon,drhodzn,sdn,msln,tccn,
-     +u10n,v10n,tt2n,td2n,diffkn,vdepn,lsprecn,convprecn,sshfn,
-     +tthn,qvhn,pphn,zzhn,
+     +u10n,v10n,tt2n,td2n,diffkn,vdepn,lsprecn,convprecn,
+     +alsprecn,aconvprecn,sshfn,
+     +tthn,qvhn,cldfrahn,pphn,zzhn,
      +surfstrn,olin,hmixn,tropopausen,wstarn,ustarn,ssrn,
      +xresoln,yresoln,
      +xln,yln,xrn,yrn,wfnamen,wfspecn,excessoron,

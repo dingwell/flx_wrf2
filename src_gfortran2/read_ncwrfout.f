@@ -30,25 +30,32 @@ c-----------------------------------------------------------------------
 c
 c   reads grid definition information from a netcdf wrf output file
 c
-c   arguments
-c	ierr - output - if non-zero, an error occurred 
-c		while opening or reading from the file
-c	idiagaa - input - if positive, testing diagnostics are printed
-c	fnamenc - input - path+filename of the wrf output file
-c	n_west_east - output - east_west dimension of the "T-grid"
-c	n_south_north - output - south_north dimension of the "T-grid"
-c	n_bottom_top - output - bottom_top dimension of the "T-grid"
-c	dx_met, dy_met - output - horizontal grid spacing (m)
-c	m_grid_id - output - grid id number
-c	m_parent_grid_id - output - grid id number of parent grid
-c	m_parent_grid_ratio - output - ratio of parent grid dxy to current grid dxy
-c	i_parent_start, j_parent_start - output - location of lower left corner
-c		of current grid relative to the parent grid.
+c-----------------------------------------------------------------------
+c
+c   ARGUMENTS
+c
+c	ierr                output    if non-zero, an error occurred while
+c                               opening or reading from the file
+c	idiagaa             input     if positive, print test-diagnostics
+c	fnamenc             input     path+filename of the wrf output file
+c	n_west_east         output    east_west dimension of the "T-grid"
+c	n_south_north       output    south_north dimension of the "T-grid"
+c	n_bottom_top        output    bottom_top dimension of the "T-grid"
+c	dx_met, dy_met      output    horizontal grid spacing (m)
+c	m_grid_id           output    grid id number
+c
+c	m_parent_grid_id    output    grid id number of parent grid
+c	m_parent_grid_ratio output    ratio of parent-to-current grid dxy
+c	i_parent_start      output    i,j-location of lower left corner of
+c j_parent_start      output    current grid relative to parent grid
+c
 c	(if there is no parent grid, then the above 4 "...parent..." variables
 c		area set to -987.)
-c	map_proj_id - WRF map projection id (2=polar stereographic)
-c	map_stdlon - map projection standard longitude (deg)
-c	map_truelat1, truelat2 - map projection true latitudes (deg)
+c
+c	map_proj_id     WRF map projection id (2=polar stereographic)
+c	map_stdlon      map projection standard longitude (deg)
+c	map_truelat1    map projection true latitudes (deg)
+c map_truelat2    
 c
 	implicit none
 
@@ -293,20 +300,23 @@ c-----------------------------------------------------------------------
 	subroutine read_ncwrfout_1datetime( ierr, fnamenc,
      &	  itime, jyyyymmdd, jhhmmss )
 c
-c   a wrf output file may contain data at multiple time.  This routine returns
-c	the date & time of the "itime" data group in the file.
+c   A wrf output file may contain data at multiple time.  This routine returns
+c	  the date & time of the "itime" data group in the file.
 c
-c   arguments
-c	ierr - output - if non-zero, an error occurred 
-c		while opening or reading from the file,
-c		or itime < 0, or itime > number of times in the file.
-c	fnamenc - input - path+filename of the wrf output file
-c	itime - input - specifies which data/time to return.  
-c		1 for first, 2 for second, ...
-c	jyyyymmdd - output - date as 8 decimal digits (yyyymmdd).
-c		yyyy=year, mm=month, dd=day of month.
-c	jhhmmss - output - time of day as 6 decimal digits (hhmmss).
-c		hh=hour, mm=minute, ss=second
+c-----------------------------------------------------------------------
+c
+c   ARGUMENTS
+c
+c	ierr                output    if non-zero, an error occurred while
+c	                              opening or reading from the file, 
+c		                            or itime < 0
+c                               or itime > number of times in the file.
+c	fnamenc             input     path+filename of the wrf output file
+c	itime               input     specifies which data/time to return.  
+c		                            1 for first, 2 for second, ...
+c	jyyyymmdd           output    date as 8 decimal digits (yyyymmdd)
+c	jhhmmss             output    time of day as 6 decimal digits (HHMMSS)
+c
 c	if (jyyyymmdd=jhhmmss=-1, then ierr is non-zero, and vice-versa)
 c
 
@@ -501,32 +511,39 @@ c-----------------------------------------------------------------------
      &	  ndims, ndims_exp, ndims_max,
      &	  lendim, lendim_exp, lendim_max )
 c
-c   reads of real (single precision) field at one time from a netcdf wrf output file
+c   reads of real (single precision) field at one time from a netcdf wrf
+c   output file.
 c
-c   arguments
-c	ierr - output - if non-zero, an error occurred 
-c		while opening or reading from the file
-c		 -1 = error opening file
-c		 -2 = requested variable is not in the file
-c		 -3 = error while inquiring about the variable
-c		 -4 = variable type is other than real (single precision)
-c		... = check below, in the code, for explanation of other ierr values.
-c	idiagaa - input - if positive, testing diagnostics are printed
-c	fnamenc - input - path+filename of the wrf output file
-c	varname - input - field name
-c	vardata - output - the data for the field
-c	itime - input - specifies which time to read.  
-c		(1 for first time in the file, 2 for second, ...)
-c	ndims - output - number of (netcdf) dimensions of the field.  
-c		This includes the time dimension.
-c	ndims_exp - input - expected number of dimensions of the field.  
-c		An error occurs if ndims .ne. ndims_exp.
-c	ndims_max - input - The dimension/size of the lendim_... arrays.
-c	lendim - output - The size of each of the "ndims" dimensions.
-c	lendim_exp - input - The expected size of each of the "ndims" dimensions.
+c-----------------------------------------------------------------------
+c
+c   ARGUMENTS
+c
+c	ierr                output    if non-zero, an error occurred while
+c		                            opening or reading from the file
+c   -1 = error opening file
+c   -2 = requested variable is not in the file
+c   -3 = error while inquiring about the variable
+c   -4 = variable type is other than real (single precision)
+c   ... = check below, in the code, for explanation of other ierr values
+c
+c	idiagaa             input     if positive, print test diagnostics
+c	fnamenc             input     path+filename of the wrf output file
+c	varname             input     field name
+c	vardata             output    field values
+c	itime               input     specifies which data/time to return
+c	                              1 for first, 2 for second, ...
+c	ndims               output    number of (netcdf) dimensions of field
+c                               This includes the time dimension
+c	ndims_exp           input     expected number of dimensions of the field
+c		                            An error occurs if ndims .ne. ndims_exp
+c	ndims_max           input     dimension/size of the lendim_... arrays
+c	lendim              output    size of each of the "ndims" dimensions
+c	lendim_exp          input     expected size of each of the "ndims" dimensions
+c
 c		If lendim_exp .gt. 0, then an error occurs if lendim .ne. lendim_exp.
-c	lendim_max - input - The maximum size of each dimension.  These are
-c		The dimensions of the vardata array.
+c
+c	lendim_max          input     The maximum size of each dimension.  These are
+c                               the dimensions of the vardata array.
 c
 	implicit none
 

@@ -104,7 +104,7 @@ C changed by Petra Seibert 9/02
 c compute convection for backward runs
 **************************************
 
-          if ((ldirect.eq.-1).and.(lconvection.eq.1).and.(itime.lt.0))
+        if ((ldirect.eq.-1).and.(lconvection.eq.1).and.(itime.lt.0))
      &    call convmix(itime)
 
 C Get necessary wind fields if not available
@@ -131,7 +131,7 @@ C Compute convective mixing for forward runs
 c for backward runs it is done before next windfield is read in
 ***************************************************************
 
-          if ((ldirect.eq.1).and.(lconvection.eq.1))
+        if ((ldirect.eq.1).and.(lconvection.eq.1))
      &    call convmix(itime)
 
 
@@ -164,9 +164,9 @@ C Nested output grid
      +                  drygriduncn(ix,jy,k,l,nage)*
      +                  exp(-1.*outstep*decay(k))
                   endif
-42              continue
+42            continue
             endif
-41          continue
+41        continue
         endif
 
 !!! CHANGE: These lines may be switched on to check the conservation

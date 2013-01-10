@@ -24,6 +24,11 @@ C                            i     o
 *          This allows the ending date/time of the flexpart run to match       *
 *          the date/time of the last met. file.                                *
 *                                                                              *
+*  Dec 2012, A. Dingwell -                                                     *
+*          Added call to new subroutines calc_prec and calc_prec.nests         *
+*          in order to get hourly precipitation from the accumulated           *
+*          precipitation in WRF output.                                        *
+*                                                                              *
 ********************************************************************************
 *                                                                              *
 * Variables:                                                                   *
@@ -114,11 +119,24 @@ C Read a new wind field and store it on place memind(2)
            if (ldirect*wftime(indj+1).gt.ldirect*itime) then
               call readwind(indj+1,memind(2),uuh,vvh,wwh)
               call readwind_nests(indj+1,memind(2),uuhn,vvhn,wwhn)
+              memtime(2)=wftime(indj+1)
+              ! AD: convert WRF accumulated prec. to prec. rate [mm/h]:
+              if(ldirect.gt.0) then ! Not needed in backward run(?)
+                call calcprec(alsprec,lsprec)
+                call calcprec(aconvprec,convprec)
+                call calcprec_nests(alsprecn,lsprecn)
+                call calcprec_nests(aconvprecn,convprecn)
+              endif
+              ! /AD
               call calcpar(memind(2),uuh,vvh,pvh)
               call calcpar_nests(memind(2),uuhn,vvhn,pvhn)
               call verttransform(memind(2),uuh,vvh,wwh,pvh)
               call verttransform_nests(memind(2),uuhn,vvhn,wwhn,pvhn)
-              memtime(2)=wftime(indj+1)
+              ! memtime(2)=wftime(indj+1) ! AD: This must be done /before/
+              ! call to calcprec, so I moved it to be evaluated earlier.
+              ! This shouldn't be a problem as neither verttransform* nor
+              ! calcpar* use memtime(). (If the model runs as it should,
+              ! remove this comment)
               nstop = 1
               goto 40
            endif
@@ -145,6 +163,14 @@ C -> read both wind fields
                memind(2)=2
                call readwind(indj+1,memind(2),uuh,vvh,wwh)
                call readwind_nests(indj+1,memind(2),uuhn,vvhn,wwhn)
+                ! AD: convert WRF accumulated prec. to prec. rate [mm/h]:
+                if(ldirect.gt.0) then ! Not needed in backward run(?)
+                  call calcprec(alsprec,lsprec)
+                  call calcprec(aconvprec,convprec)
+                  call calcprec_nests(alsprecn,lsprecn)
+                  call calcprec_nests(aconvprecn,convprecn)
+                endif
+                ! /AD
                call calcpar(memind(2),uuh,vvh,pvh)
                call calcpar_nests(memind(2),uuhn,vvhn,pvhn)
                call verttransform(memind(2),uuh,vvh,wwh,pvh)

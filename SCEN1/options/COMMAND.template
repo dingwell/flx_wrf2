@@ -94,7 +94,7 @@
     NESTED_OUTPUT    SHALL NESTED OUTPUT BE USED? 1 YES, 0 NO
 
 23. _                4X, I1
-    1
+    2
     TURB_OPTION      0=no turbulence; 1=diagnosed as in FLEXPART_ECMWF; 2=from tke.
 
 24. _                4X, I1
@@ -106,8 +106,8 @@
     SFC_OPTION       0=default computation of u*, hflux, pblh, 1=from WRF
  
 26. _                4X, I1
-    1
-    IOUTTYPE         0=default binary, 1=ascii
+    2
+    IOUTTYPE         0=default binary, 1=ascii, 2=netcdf
 
 1. Simulation direction, 1 for forward, -1 for backward in time 
 	(consult Seibert and Frank, 2004 for backward runs)

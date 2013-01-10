@@ -50,7 +50,8 @@ C                                    i   i    i    i   i
       include 'includecom'
 
       integer ix,jy,kz,iz,n,l,kmin,kl,klp,ix1,jy1,ixp,jyp
-      integer method_z_compute
+      integer method_z_compute,rain_cloud_above,kz_inv
+      real lsp,convp
       real uvzlev(nuvzmax),wzlev(nwzmax),rhoh(nuvzmax),pinmconv(nzmax)
       real uvwzlev(0:nxmaxn-1,0:nymaxn-1,nzmax)
       real ew,pint,tv,tvold,pold,const,dz1,dz2,dz,ui,vi
@@ -196,12 +197,15 @@ C Levels, where u,v,t and q are given
           kmin=2
           do 30 iz=2,nz-1
             do 35 kz=kmin,nuvz
-              if(height(iz).gt.uvzlev(nuvz)) then
-                uun(ix,jy,iz,n,l)=uun(ix,jy,nz,n,l)
+              if(height(iz).gt.uvzlev(nuvz)) then   ! At top lvl of input?
+                uun(ix,jy,iz,n,l)=uun(ix,jy,nz,n,l) ! then extrapolate
                 vvn(ix,jy,iz,n,l)=vvn(ix,jy,nz,n,l)
                 ttn(ix,jy,iz,n,l)=ttn(ix,jy,nz,n,l)
                 qvn(ix,jy,iz,n,l)=qvn(ix,jy,nz,n,l)
                 pvn(ix,jy,iz,n,l)=pvn(ix,jy,nz,n,l)
+                ! AD: added 2012-12-14
+                cloudsn(ix,jy,iz,n,l)=cloudsn(ix,jy,nz,n,l)
+                ! /AD
                 rhon(ix,jy,iz,n,l)=rhon(ix,jy,nz,n,l)
                 goto 30
               endif
@@ -220,6 +224,10 @@ C Levels, where u,v,t and q are given
      +         qvhn(ix,jy,kz,n,l)*dz1)/dz
                pvn(ix,jy,iz,n,l)=(pvhn(ix,jy,kz-1,l)*dz2+
      +         pvhn(ix,jy,kz,l)*dz1)/dz
+               ! AD: added 2012-12-14
+               cldfran(ix,jy,iz,n,l)=(cldfrahn(ix,jy,kz-1,n,l)*dz2+
+     +         cldfrahn(ix,jy,kz,n,l)*dz1)/dz
+               ! /AD
                rhon(ix,jy,iz,n,l)=(rhoh(kz-1)*dz2+rhoh(kz)*dz1)/dz
                kmin=kz
                goto 30
@@ -382,9 +390,47 @@ c "else" -- apply no w correction
 c
       end if
 
+C AD: adopted from FLEXPART 9.02:
+C create a cloud and rainout/washout field, clouds occur where 
+C cldfra > 0.5
+c total cloudheight is stored at level 0
+      do jy=0,nyn(l)-1
+        do ix=0,nxn(l)-1
+          rain_cloud_above=0
+          lsp=lsprecn(ix,jy,1,n,l)
+          convp=convprecn(ix,jy,1,n,l)
+          cloudsnh(ix,jy,1,n,l)=0
+          do kz_inv=1,nz-1
+            kz=nz-kz_inv+1
+            cloudsn(ix,jy,kz,n,l)=0
+            if (cldfran(ix,jy,kz,n,l).ge.0.5) then   ! IN CLOUD
+              if ((lsp.gt.0.01).or.(convp.gt.0.01)) then  ! PRECIPITATION
+                rain_cloud_above=1
+                cloudsnh(ix,jy,1,n,l)=cloudsnh(ix,jy,1,n,l)+
+     +          (height(kz)-height(kz-1))
+                if (lsp.ge.convp) then  ! LSP DOMINATED
+                  cloudsn(ix,jy,kz,n,l)=3
+                else                    ! CONV DOMINATED
+                  cloudsn(ix,jy,kz,n,l)=2
+                endif
+              else                      ! NO/LOW PRECIPITATION
+                cloudsn(ix,jy,kz,n,l)=1
+              endif
+            else                      ! NO CLOUD
+              if ( rain_cloud_above.eq.1 ) then   ! WASHOUT
+                if (lsp.ge.convp) then  ! LSP DOMINTATED
+                  cloudsn(ix,jy,kz,n,l)=5
+                else
+                  cloudsn(ix,jy,kz,n,l)=4  ! CONVP DOMINATED
+                endif
+              endif!washout
+            endif!cloud/nocloud
+          end do!kz_inv
+        end do!ix
+      end do!jy
 
 
-100   continue
+100   continue  ! main loop (nests)
 
       return
       end

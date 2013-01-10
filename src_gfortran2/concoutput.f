@@ -35,14 +35,17 @@ C            o
 * nspeciesdim     either nspec (forward runs), or numpoint (backward runs)     *
 * tot_mu          1 for forward, initial mass mixing ration for backw. runs    *
 * maxpointspec    maxspec for forward runs, maxpoint for backward runs         *
+* ncirec          netcdf record coordinate                                     *
 *                                                                              *
 ********************************************************************************
 
       include 'includepar'
       include 'includecom'
+      include 'netcdf.inc'
 
       double precision jul
       integer itime,i,ix,jy,kz,k,l,iix,jjy,kzz,nage,jjjjmmdd,ihmmss
+      integer ncirec
       integer ncells(maxpointspec,maxageclass)
       integer ncellsd(maxpointspec,maxageclass)
       integer ncellsw(maxpointspec,maxageclass),nspeciesdim
@@ -83,6 +86,13 @@ C Determine current calendar date, needed for the file name
       write(atime,'(i6.6)') ihmmss
       write(unitdates,'(a)') adate//atime
 
+C For netcdf, we need an index for the record dimension:
+********************************************************
+
+      if(iouttype.eq.2) then
+        ncirec = itime/3600
+        write(*,*) "NetCDF: writing to record index = ",ncirec
+      endif
 
 C For forward simulations, output fields have dimension MAXSPEC,
 C for backward simulations, output fields have dimension MAXPOINT.
@@ -185,24 +195,25 @@ C more efficient in terms of storage space. This is checked for
 C every species and for every age class
 ***************************************************************
 
-      do 10 k=1,nspeciesdim
-        do 10 nage=1,nageclass
-          ncellsw(k,nage)=0
-          ncellsd(k,nage)=0
-10        ncells(k,nage)=0
+      if(iouttype.eq.0.or.iouttype.eq.1) then
+        do 10 k=1,nspeciesdim
+          do 10 nage=1,nageclass
+            ncellsw(k,nage)=0
+            ncellsd(k,nage)=0
+10          ncells(k,nage)=0
 
-      do 20 k=1,nspeciesdim
-        do 20 nage=1,nageclass
-          do 20 jy=0,numygrid-1
-            do 20 ix=0,numxgrid-1
-              if (wetgrid(ix,jy,k,nage).gt.0) ncellsw(k,nage)=
-     +        ncellsw(k,nage)+1
-              if (drygrid(ix,jy,k,nage).gt.0) ncellsd(k,nage)=
-     +        ncellsd(k,nage)+1
-              do 20 kz=1,numzgrid
-                if (grid(ix,jy,kz,k,nage).gt.0) ncells(k,nage)=
-     +          ncells(k,nage)+1
-20            continue
+        do 20 k=1,nspeciesdim
+          do 20 nage=1,nageclass
+            do 20 jy=0,numygrid-1
+              do 20 ix=0,numxgrid-1
+                if (wetgrid(ix,jy,k,nage).gt.0) ncellsw(k,nage)=
+     +          ncellsw(k,nage)+1
+                if (drygrid(ix,jy,k,nage).gt.0) ncellsd(k,nage)=
+     +          ncellsd(k,nage)+1
+                do 20 kz=1,numzgrid
+                  if (grid(ix,jy,kz,k,nage).gt.0) ncells(k,nage)=
+     +            ncells(k,nage)+1
+20      continue
 
 C Output in sparse matrix format is more efficient, if less than
 C 2/5 of all cells contains concentrations>0, because one line
@@ -213,28 +224,29 @@ C matrix output would require only 3*4 byte per entry (no extra bytes per
 C line). Then, 2.5 below should be changed to 1.5 for optimum efficiency.
 *************************************************************************
 
-      do 15 k=1,nspeciesdim
-        do 15 nage=1,nageclass
-          if (4.0*ncellsw(k,nage).lt.numxgrid*numygrid) then
-            sparsew(k,nage)=.true.
-          else
-            sparsew(k,nage)=.false.
-          endif
-          if (4.0*ncellsd(k,nage).lt.numxgrid*numygrid) then
-            sparsed(k,nage)=.true.
-          else
-            sparsed(k,nage)=.false.
-          endif
-          if (4.0*ncells(k,nage).lt.numxgrid*numygrid*numzgrid) then
-            sparse(k,nage)=.true.
-          else
-            sparse(k,nage)=.false.
-          endif
+        do 15 k=1,nspeciesdim
+          do 15 nage=1,nageclass
+            if (4.0*ncellsw(k,nage).lt.numxgrid*numygrid) then
+              sparsew(k,nage)=.true.
+            else
+              sparsew(k,nage)=.false.
+            endif
+            if (4.0*ncellsd(k,nage).lt.numxgrid*numygrid) then
+              sparsed(k,nage)=.true.
+            else
+              sparsed(k,nage)=.false.
+            endif
+            if (4.0*ncells(k,nage).lt.numxgrid*numygrid*numzgrid) then
+              sparse(k,nage)=.true.
+            else
+              sparse(k,nage)=.false.
+            endif
 cjdf
-          sparse(k,nage)=.false.
-          sparsed(k,nage)=.false.
-          sparsew(k,nage)=.false.
-15        continue
+            sparse(k,nage)=.false.
+            sparsed(k,nage)=.false.
+            sparsew(k,nage)=.false.
+15      continue
+      endif
 
 
 ********************************************************************
@@ -338,8 +350,8 @@ C Wet deposition
               write(unitoutgrid) -999,999.,999.
             else
               write(unitoutgrid) 2
-              do 32 ix=0,numxgrid-1
-32              write(unitoutgrid) (1.e12*wetgrid(ix,jy,k,nage)/
+              do 310 ix=0,numxgrid-1
+310             write(unitoutgrid) (1.e12*wetgrid(ix,jy,k,nage)/
      +          area(ix,jy)
      +          ,1.e12*wetgridsigma(ix,jy,k,nage)/area(ix,jy)
      +          ,jy=0,numygrid-1)
@@ -357,31 +369,49 @@ C Wet deposition
               write(unitoutgrid,*) -999,999.,999.
             else
               write(unitoutgrid,*) 2
-              do 321 jy=0,numygrid-1
-              do 321 ix=0,numxgrid-1
+              do 312 jy=0,numygrid-1
+              do 312 ix=0,numxgrid-1
 c-----modified 2011/03/29
-321             write(unitoutgrid,*) 1.e12*wetgrid(ix,jy,k,nage)/
+312             write(unitoutgrid,*) 1.e12*wetgrid(ix,jy,k,nage)/
      +          area(ix,jy)
      +          ,1.e12*wetgridsigma(ix,jy,k,nage)/area(ix,jy)
 c------------------------
             endif
             endif
+c-----added 2012/11 to include netcdf output
+c----- Don't know which order the loops should come for
+c----- maximum efficiency, iy is the fastest varying
+c----- dimension in Fortran, but in the file, it should be ix
+c----- (netcdf follows C-style).
+            if (iouttype.eq.2) then
+              !write(*,*) "NetCDF: Writing wet deposition field"
+              do 313 jy=0,numygrid-1
+                do 313 ix=0,numxgrid-1
+c               if(wetgrid(ix,jy,k,nage).gt.0)
+c    +            write(*,*) wetgrid(ix,jy,k,nage)
+                ncret = nf_put_vara_real(ncid,ncwdvid,
+     +          (/ix+1,jy+1,k,nage,ncirec/),(/1,1,1,1,1/),
+     +          1.e12*wetgrid(ix,jy,k,nage)/area(ix,jy))
+313             call check_ncerror(ncret)
+                !TODO add wetgridsigma
+            end if !iouttype.eq.2
+c-------------------------------------------
 
 C Dry deposition
             if (iouttype.eq.0) then 
             if (sparsed(k,nage)) then
               write(unitoutgrid) 1
-              do 33 jy=0,numygrid-1
-                do 33 ix=0,numxgrid-1
+              do 32 jy=0,numygrid-1
+                do 32 ix=0,numxgrid-1
                   if (drygrid(ix,jy,k,nage).gt.0.) write(unitoutgrid)
      +            ix+jy*numxgrid,1.e12*drygrid(ix,jy,k,nage)/area(ix,jy)
      +            ,1.e12*drygridsigma(ix,jy,k,nage)/area(ix,jy)
-33                continue
+32                continue
               write(unitoutgrid) -999,999.,999.
             else
               write(unitoutgrid) 2
-              do 34 ix=0,numxgrid-1
-34              write(unitoutgrid) (1.e12*drygrid(ix,jy,k,nage)/
+              do 320 ix=0,numxgrid-1
+320             write(unitoutgrid) (1.e12*drygrid(ix,jy,k,nage)/
      +          area(ix,jy)
      +          ,1.e12*drygridsigma(ix,jy,k,nage)/area(ix,jy)
      +          ,jy=0,numygrid-1)
@@ -390,42 +420,56 @@ C Dry deposition
             if (iouttype.eq.1) then 
             if (sparsed(k,nage)) then
               write(unitoutgrid,*) 1
-              do 331 jy=0,numygrid-1
-                do 331 ix=0,numxgrid-1
+              do 321 jy=0,numygrid-1
+                do 321 ix=0,numxgrid-1
                   if (drygrid(ix,jy,k,nage).gt.0.) write(unitoutgrid,*)
      +            ix+jy*numxgrid,1.e12*drygrid(ix,jy,k,nage)/area(ix,jy)
      +            ,1.e12*drygridsigma(ix,jy,k,nage)/area(ix,jy)
-331               continue
+321               continue
               write(unitoutgrid,*) -999,999.,999.
             else
               write(unitoutgrid,*) 2
-              do 341 jy=0,numygrid-1
-              do 341 ix=0,numxgrid-1
+              do 322 jy=0,numygrid-1
+              do 322 ix=0,numxgrid-1
 c------modified 2011/03/29
-341             write(unitoutgrid,*) 1.e12*drygrid(ix,jy,k,nage)/
+322             write(unitoutgrid,*) 1.e12*drygrid(ix,jy,k,nage)/
      +          area(ix,jy)
      +          ,1.e12*drygridsigma(ix,jy,k,nage)/area(ix,jy)
             endif
             endif
+c-----added 2012/11 to include netcdf output
+            if (iouttype.eq.2) then
+              !write(*,*) "NetCDF: Writing dry deposition field"
+              do 323 jy=0,numygrid-1
+                do 323 ix=0,numxgrid-1
+c               if(drygrid(ix,jy,k,nage).gt.0)
+c    +            write(*,*) drygrid(ix,jy,k,nage)
+323             ncret = nf_put_vara_real(ncid,ncddvid,
+     +          (/ix+1,jy+1,k,nage,ncirec/),(/1,1,1,1,1/),
+     +          1.e12*drygrid(ix,jy,k,nage)/area(ix,jy))
+                call check_ncerror(ncret)
+                !TODO add drygridsigma
+            end if !iouttype.eq.2
+c-------------------------------------------
 
 C Concentrations
             if (iouttype.eq.0) then 
             if (sparse(k,nage)) then
               write(unitoutgrid) 1
-              do 35 kz=1,numzgrid
-                do 35 jy=0,numygrid-1
-                  do 35 ix=0,numxgrid-1
+              do 33 kz=1,numzgrid
+                do 33 jy=0,numygrid-1
+                  do 33 ix=0,numxgrid-1
                     if (grid(ix,jy,kz,k,nage).gt.0.) write(unitoutgrid)
      +              ix+jy*numxgrid+kz*numxgrid*numygrid,
      +              grid(ix,jy,kz,k,nage)*factor(ix,jy,kz)/tot_mu(k) 
      +            ,gridsigma(ix,jy,kz,k,nage)*factor(ix,jy,kz)/tot_mu(k)
-35                  continue
+33                  continue
               write(unitoutgrid) -999,999.,999.
             else
               write(unitoutgrid) 2
-              do 36 kz=1,numzgrid
-                do 36 ix=0,numxgrid-1
-36                write(unitoutgrid) (grid(ix,jy,kz,k,nage)*
+              do 330 kz=1,numzgrid
+                do 330 ix=0,numxgrid-1
+330                write(unitoutgrid) (grid(ix,jy,kz,k,nage)*
      +            factor(ix,jy,kz)/tot_mu(k)
      +         ,gridsigma(ix,jy,kz,k,nage)*factor(ix,jy,kz)/tot_mu(k)
      +            ,jy=0,numygrid-1)
@@ -434,27 +478,43 @@ C Concentrations
             if (iouttype.eq.1) then 
             if (sparse(k,nage)) then
               write(unitoutgrid,*) 1
-              do 351 kz=1,numzgrid
-                do 351 jy=0,numygrid-1
-                  do 351 ix=0,numxgrid-1
+              do 331 kz=1,numzgrid
+                do 331 jy=0,numygrid-1
+                  do 331 ix=0,numxgrid-1
                   if (grid(ix,jy,kz,k,nage).gt.0.) write(unitoutgrid,*)
      +              ix+jy*numxgrid+kz*numxgrid*numygrid,
      +              grid(ix,jy,kz,k,nage)*factor(ix,jy,kz)/tot_mu(k) 
      +            ,gridsigma(ix,jy,kz,k,nage)*factor(ix,jy,kz)/tot_mu(k)
-351                 continue
+331                 continue
               write(unitoutgrid,*) -999,999.,999.
             else
               write(unitoutgrid,*) 2
-              do 361 kz=1,numzgrid
-                do 361 jy=0,numygrid-1
-                do 361 ix=0,numxgrid-1
+              do 332 kz=1,numzgrid
+                do 332 jy=0,numygrid-1
+                do 332 ix=0,numxgrid-1
 c------modified 2011/03/29
-361               write(unitoutgrid,*) grid(ix,jy,kz,k,nage)*
+332               write(unitoutgrid,*) grid(ix,jy,kz,k,nage)*
      +            factor(ix,jy,kz)/tot_mu(k)
      +         ,gridsigma(ix,jy,kz,k,nage)*factor(ix,jy,kz)/tot_mu(k)
 c------------------------
             endif
             endif
+c-----added 2012/11 to include netcdf output
+            if (iouttype.eq.2) then
+              !write(*,*) "NetCDF: Writing concentration field"
+              do 333 kz=1,numzgrid
+              do 333 jy=0,numygrid-1
+              do 333 ix=0,numxgrid-1
+                ncret = nf_put_vara_real(ncid,nccovid,
+     +          (/ix+1,jy+1,kz,k,nage,ncirec/),(/1,1,1,1,1,1/),
+     +          grid(ix,jy,kz,k,nage)*factor(ix,jy,kz)/tot_mu(k))
+                call check_ncerror(ncret)
+c             endif
+              !TODO add gridsigma
+333           continue
+
+            end if !iouttype.eq.2
+c-------------------------------------------
 30          continue
 
         close(unitoutgrid)
@@ -479,7 +539,7 @@ C Dump of receptor concentrations
         endif
         endif
 
-      endif
+      endif !iout==(1,3 or 5)
 
 
 C Mixing ratio output
@@ -533,15 +593,30 @@ c-------------------------
               write(unitoutgridppt,*) -999,999.,999.
             else
               write(unitoutgridppt,*) 2
-              do 1321 jy=0,numygrid-1
-              do 1321 ix=0,numxgrid-1
+              do 1312 jy=0,numygrid-1
+              do 1312 ix=0,numxgrid-1
 c------modified 2011/03/29
-1321            write(unitoutgridppt,*) 1.e12*wetgrid(ix,jy,k,nage)/
+1312            write(unitoutgridppt,*) 1.e12*wetgrid(ix,jy,k,nage)/
      +          area(ix,jy)
      +          ,1.e12*wetgridsigma(ix,jy,k,nage)/area(ix,jy)
 c-------------------------
             endif
             endif
+c-----added 2012/11 to include netcdf output
+c-----(and I don't see the point in writing the same field twice as is
+c-----the case with binary and ascii when iout.eq.3, so I won't do that
+c-----for netcdf)
+            if (iouttype.eq.2.and.iout.eq.2) then
+              !write(*,*) "NetCDF: Writing wet deposition field"
+              do 1313 jy=0,numygrid-1
+                do 1313 ix=0,numxgrid-1
+                ncret = nf_put_vara_real(ncid,ncwdvid,
+     +          (/ix+1,jy+1,k,nage,ncirec/),(/1,1,1,1,1/),
+     +          1.e12*wetgrid(ix,jy,k,nage)/area(ix,jy))
+                call check_ncerror(ncret)
+1313            continue
+                !TODO add wetgridsigma
+            end if !iouttype.eq.2
 
 C Dry deposition
             if (iouttype.eq.0) then 
@@ -577,15 +652,30 @@ c------------------------
               write(unitoutgridppt,*) -999,999.,999.
             else
               write(unitoutgridppt,*) 2
-              do 1341 jy=0,numygrid-1
-              do 1341 ix=0,numxgrid-1
+              do 1332 jy=0,numygrid-1
+              do 1332 ix=0,numxgrid-1
 c------modified 2011/03/29
-1341            write(unitoutgridppt,*) 1.e12*drygrid(ix,jy,k,nage)/
+1332            write(unitoutgridppt,*) 1.e12*drygrid(ix,jy,k,nage)/
      +          area(ix,jy)
      +          ,1.e12*drygridsigma(ix,jy,k,nage)/area(ix,jy)
 c-------------------------
             endif
             endif
+c-----added 2012/11 to include netcdf output
+c-----(and I don't see the point in writing the same field twice as is
+c-----the case with binary and ascii when iout.eq.3, so I won't do that
+c-----for netcdf)
+            if (iouttype.eq.2.and.iout.eq.2) then
+              !write(*,*) "NetCDF: Writing dry deposition field"
+              do 1333 jy=0,numygrid-1
+                do 1333 ix=0,numxgrid-1
+                ncret = nf_put_vara_real(ncid,ncwdvid,
+     +          (/ix+1,jy+1,k,nage,ncirec/),(/1,1,1,1,1/),
+     +          1.e12*drygrid(ix,jy,k,nage)/area(ix,jy))
+                call check_ncerror(ncret)
+                !TODO add drygridsigma
+1333            continue
+            end if !iouttype.eq.2
 
 C Mixing ratios
             if (iouttype.eq.0) then 
@@ -650,6 +740,20 @@ c------modified 2011/03/29
 c-------------------------
             endif
             endif
+c-----added 2012/11 to include netcdf output
+            if (iouttype.eq.2) then
+              !write(*,*) "NetCDF: Writing mixing ratio field"
+              do 137 kz=1,numzgrid
+              do 137 jy=0,numygrid-1
+              do 137 ix=0,numxgrid-1
+                ncret = nf_put_vara_real(ncid,ncravid,
+     +          (/ix+1,jy+1,kz,k,nage,ncirec/),(/1,1,1,1,1,1/),
+     +          1e12*grid(ix,jy,kz,k,nage)/volume(ix,jy,kz)/outnum*
+     +          weightair/weightmolar(k)/densityoutgrid(ix,jy,kz))
+                call check_ncerror(ncret)
+              !TODO add gridsigma
+137           continue
+            end if
 130         continue
 
         close(unitoutgridppt)
@@ -672,9 +776,16 @@ C Dump of receptor concentrations
      +     weightair/weightmolar(k)/densityoutrecept(i),i=1,numreceptor)
         endif
         endif
+        !TODO netcdf
 
       endif
 
+C NetCDF: write changes to file:
+      if(iouttype.eq.2) then
+        !write(*,*) "NetCDF: Syncing output file"
+        ncret = nf_sync(ncid)
+        call check_ncerror(ncret)
+      endif
 
 C Reinitialization of grid
 **************************
@@ -691,3 +802,5 @@ C Reinitialization of grid
 
 
       end
+
+

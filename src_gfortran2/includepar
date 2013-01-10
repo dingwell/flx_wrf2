@@ -23,6 +23,22 @@
       implicit none
 
 
+*******************************************************
+C Version identifier, will be put in the output headers
+*******************************************************
+
+      character*20 version
+      parameter(version="FLEXPARTF-WRF V5.0  ")
+C                        --------------------
+
+C version                 Version identifier, used in header
+C                         NOTE: Do NOT change the length of this variable!
+C                         The netcdf interface requires a the length to be given
+C                         This could be fixed with the intrinsic function 'len'
+C                         However, len is a defined variable in FLEXPART and is
+C                         used just about everywhere. So, I'm sorry, I won't
+C                         fix this anytime soon...
+
 ************************************************************
 C Number of directories/files used for FLEXPART input/output
 ************************************************************
@@ -49,7 +65,7 @@ C ga                      gravity acceleration of earth [m/s**2]
 C cpa                     specific heat for dry air
 C kappa                   exponent of formula for potential temperature
 
-      real karman,href,convke,hmixmin,hmixmax,turbmesoscale
+      real karman,href,hmixmin,hmixmax,turbmesoscale,convke
       real d_trop,d_strat
       parameter(karman=0.40,href=15.,convke=2.0)
       parameter(hmixmin=100.,hmixmax=4500.,turbmesoscale=0.16)
@@ -286,5 +302,3 @@ C turb_option values and other FLEXPART_WRF stuff
 ! Note that the meters units are used internally for calculating particle
 !    positions.  When lat/lon input/output is selected, the x,y coordinates
 !    are transformed between lat/lon and meters during input/output.
-
-

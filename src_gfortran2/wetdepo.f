@@ -46,7 +46,9 @@ C                          i      i        i
       include 'includecom'
 
       integer jpart,itime,ltsample,loutnext,ldeltat,i,j,k,ix,jy
-      integer ngrid,itage,nage
+      integer ngrid,itage,nage,hz,il,interp_time,n,clouds_v
+      real S_i, act_temp, cl, cle ! in cloud scavenging
+      real clouds_h ! cloud height for the specific grid point
       real xtn,ytn,lsp,convp,cc,fraction,prec,wetscav
       real wetdeposit(maxspec),lfr(5),cfr(5),restmass,smallnum
       save lfr,cfr,smallnum
@@ -115,18 +117,54 @@ C Interpolate large scale precipitation, convective precipitation and
 C total cloud cover
 C Note that interpolated time refers to itime-0.5*ltsample [PS]
 *********************************************************************
+        interp_time=nint(itime-0.5*ltsample)
 
         if (ngrid.eq.0) then
           call interpol_rain(lsprec,convprec,tcc,nxmax,nymax,
      +    1,nx,ny,memind,sngl(xtra1(jpart)),sngl(ytra1(jpart)),1,
-     +    memtime(1),memtime(2),nint(itime-0.5*ltsample),lsp,convp,cc)
+     +    memtime(1),memtime(2),interp_time,lsp,convp,cc)
         else
           call interpol_rain_nests(lsprecn,convprecn,tccn,
      +    nxmaxn,nymaxn,1,maxnests,ngrid,nxn,nyn,memind,xtn,ytn,1,
-     +    memtime(1),memtime(2),nint(itime-0.5*ltsample),lsp,convp,cc)
+     +    memtime(1),memtime(2),interp_time,lsp,convp,cc)
         endif
+C       write(*,*) 'ngrid:',ngrid
+        if(lsp.lt.0.or.convp.lt.0) then
+          write(*,*) 'wetdepo (1): NEGATIVE PRECIP! lsp,convp:',
+     +    lsp,convp
+        end if
 
         if ((lsp.lt.0.01).and.(convp.lt.0.01)) goto 20
+
+C AD: adopted from FLEXPART-9.02:
+C     Get the level where the particle is in
+        do il=2,nz
+          if (height(il).gt.ztra1(jpart)) then
+            hz=il-1   ! level found
+            goto 26   ! exit loop
+          endif
+        end do
+26      continue
+
+        n=memind(2)
+        if(abs(memtime(1)-interp_time).lt.abs(memtime(2)-interp_time))
+     +    n=memind(1)
+
+C AD: adopted from FLEXPART-9.02:
+C     if there is no precipitation or the particle is above the clouds
+C     no scavenging is done
+        
+        if(ngrid.eq.0) then
+          clouds_v=clouds(ix,jy,hz,n)
+          clouds_h=cloudsh(ix,jy,1,n)
+        else
+          clouds_v=cloudsn(ix,jy,hz,n,ngrid)
+          clouds_h=cloudsnh(ix,jy,1,n,ngrid)
+        endif
+        if (clouds_v.le.1) goto 20  ! ABOVE CLOUD
+C       write (*,*) 'there is scavenging'
+C /AD
+        
 
 C 1) Parameterization of the the area fraction of the grid cell where the
 C    precipitation occurs: the absolute limit is the total cloud cover, but
@@ -159,6 +197,11 @@ C    convective precipitation.
           j=1
         endif
 
+        if(lsp.lt.0.or.convp.lt.0) then
+          write(*,*) 'wetdepo (2): NEGATIVE PRECIP! lsp,convp:',
+     +    lsp,convp
+        end if
+
         fraction=max(0.05,cc*(lsp*lfr(i)+convp*cfr(j))/(lsp+convp))
 
 C 2) Computation of precipitation rate in sub-grid cell
@@ -166,14 +209,55 @@ C 2) Computation of precipitation rate in sub-grid cell
 
         prec=(lsp+convp)/fraction
 
+        if(lsp.lt.0.or.convp.lt.0) then
+          write(*,*) 'wetdepo (3): NEGATIVE PRECIP! lsp,convp:',
+     +    lsp,convp
+        end if
 
 C 3) Computation of scavenging coefficients for all species
 C    Computation of wet deposition
+C AD: FLEXPART-9.02 code included to deal with in/below
+C     cloud scavenging and disable above cloud scavenging.
 ***********************************************************
 
-        do 10 k=1,nspec                                  ! loop over species
-          if (weta(k).gt.0.) then
-            wetscav=weta(k)*prec**wetb(k)                ! scavenging coeff.
+        do 10 k=1,nspec                               ! loop over species
+
+        if(lsp.lt.0.or.convp.lt.0) then
+          write(*,*) 'wetdepo (4): NEGATIVE PRECIP! lsp,convp:',
+     +    lsp,convp
+        end if
+
+          wetdeposit(k)=0.                            ! AD: default = no scav
+          if (weta(k).gt.0.) then ! species affected by wetdep?
+            if (clouds_v.ge.4) then ! BELOW CLOUD?
+              wetscav=weta(k)*prec**wetb(k)           ! scavenging coeff.
+              ! for aerosols and not highliy soluble substances
+              ! weta=5E-6
+            else  ! IN CLOUD? (above cloud has already been ruled out)
+              if (ngrid.gt.0) then
+                act_temp=ttn(ix,jy,hz,n,ngrid)
+              else
+                act_temp=tt(ix,jy,hz,n)
+              endif
+              cl=2E-7*prec**0.36
+              if(lsp.lt.0.or.convp.lt.0) then
+                write(*,*) 'lsp,convp,fraction:',lsp,convp,fraction
+                write(*,*) 'NEGATIVE PRECIP'
+                stop
+              end if
+              if(dquer(k).gt.0) then ! PARTICLE
+                !write(*,*) 'is particle'
+                S_i=0.9/cl
+              else                    ! GAS
+                !write(*,*) 'is gas'
+                cle=(1-cl)/(henry(k)*(r_air/3500.)*act_temp)+cl
+                S_i=1/cle
+              endif
+              wetscav=S_i*prec/3.6E6/clouds_h
+c             write(*,*) 'S_i:',S_i
+c             write(*,*) 'in. wetscav:',
+c    +        wetscav,cle,cl,act_temp,prec,clouds_h
+            endif
             wetdeposit(k)=xmass1(jpart,k)*
      +        (1.-exp(-wetscav*abs(ltsample)))*fraction  ! wet deposition
 C           new particle mass:
@@ -196,13 +280,17 @@ C gridded deposited mass was calculated
           endif
 10        continue
 
+C AD: Followed Sabine Eckhard's example: only call wetdepokernel for
+C forward runs.
 C Add the wet deposition to accumulated amount on output grid and nested output grid
 ************************************************************************************
 
-        call wetdepokernel(nclass(jpart),wetdeposit,sngl(xtra1(jpart)),
-     +  sngl(ytra1(jpart)),nage)
-        if (nested_output.eq.1) call wetdepokernel_nest(nclass(jpart),
-     +  wetdeposit,sngl(xtra1(jpart)),sngl(ytra1(jpart)),nage)
+        if (ldirect.eq.1) then
+          call wetdepokernel(nclass(jpart),wetdeposit,sngl(xtra1(jpart))
+     +    ,sngl(ytra1(jpart)),nage)
+          if (nested_output.eq.1) call wetdepokernel_nest(nclass(jpart),
+     +      wetdeposit,sngl(xtra1(jpart)),sngl(ytra1(jpart)),nage)
+        endif
 
 20      continue
 

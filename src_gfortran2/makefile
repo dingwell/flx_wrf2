@@ -1,14 +1,15 @@
 SHELL = /bin/csh
 MAIN = flexpart_wrf
 INCF	= incl*
-NETCDF = /usr
+NETCDF = /home/adam/local
 
 
 # -m64 :: a 64-bit environment allows access to memory and files in excess of 2GB
 # frecord-marker=4 ::  use 4-byte record markers by default for 
 # unformatted files to be compatible with g77 and most other compilers
 FC      = gfortran
-FCOPTIM = -O3 -ffast-math -ftree-vectorize -ftree-loop-linear -funroll-loops
+#FCOPTIM = -O3 -ffast-math -ftree-vectorize -ftree-loop-linear -funroll-loops
+FCOPTIM = -O3 -ffast-math -ftree-vectorize -funroll-loops -mcmodel=medium
 FFLAGS  = $(FCOPTIM) -m64 -fconvert=little-endian -frecord-marker=4 -I$(NETCDF)/include
 LDFLAGS =  -L$(NETCDF)/lib -lnetcdf -lnetcdff -lm
 
@@ -17,7 +18,7 @@ OBJECTS = assignland.o  writeheader.o \
 calcpar.o               part0.o \
 caldate.o               partdep.o \
 coordtrafo.o            psih.o \
-                        raerod.o \
+check_ncerror.o         raerod.o \
 drydepokernel.o         random.o \
 erf.o                   readavailable.o \
 ew.o                    readcommand.o \
@@ -65,7 +66,8 @@ outgrid_init_nest.o     writeheader_nest.o \
 concoutput_nest.o       wetdepokernel_nest.o \
 drydepokernel_nest.o \
 read_ncwrfout.o         map_proj_wrf.o \
-map_proj_wrf_subaa.o
+map_proj_wrf_subaa.o \
+calcprec.o							calcprec_nests.o
 
 
 $(MAIN): $(OBJECTS)

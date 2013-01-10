@@ -61,6 +61,7 @@ c local variables
 
       real ewss(0:nxmaxn-1,0:nymaxn-1),nsss(0:nxmaxn-1,0:nymaxn-1)
       real plev1,pmean,tv,fu,hlev1,ff10m,fflev1
+      real dumaprecn(0:nxmaxn-1,0:nymaxn-1,1,2)
 
       double precision jul
       double precision juldate    ! juldate is a function
@@ -562,6 +563,39 @@ c   read the data into k=kbgn,nuvz
       end do
       end do
 
+c AD: total cloud cover
+c     Was set to 0 before, it is here set to max(CLDFRA) over 
+c     the vertical.  The problem is that there is no 2D-var for
+c     cloud cover in WRF.  The closest thing is CLDFRA which is a
+c     3D-var with values within [0,1], however, it seems that
+c     CLDFRA is either 1 or 0.  It can thus be used as an indicator
+c     of which cells contain clouds, but not for determining the
+c     fractional cloud cover. However, since tcc interpolated to the
+c     particle position, we will get fractional values anyway.
+      varname = 'CLDFRA'
+      ! 3D-field:
+      call read_ncwrfout_1realfield( ierr, idiagaa, fnamenc,
+     &  varname, cldfrahn(0,0,kbgn,n,l),
+     &  itime,
+     &  ndims, ndims_exp, ndims_max,
+     &  lendim, lendim_exp, lendim_max )
+      if (ierr .ne. 0) then
+          write(*,9100) l, 'error doing ncread of CLDFRA', fnamenc
+          stop
+      end if
+      ! 2D-field:
+      do k = kbgn, nuvz
+      do j = 0, nyn(l)-1
+      do i = 0, nxn(l)-1
+        ! Look for maximum cldfrah in vertical column
+        if( k.eq.kbgn ) then  ! Lowest level?
+          tccn(i,j,1,n,l) = cldfrahn(i,j,k,n,l)
+        else if( tccn(i,j,1,n,l) .lt. cldfrahn(i,j,k,n,l) ) then
+          tccn(i,j,1,n,l)=cldfrahn(i,j,k,n,l)
+        endif
+      end do
+      end do
+      end do
 
 c surface pressure
       varname = 'PSFC'
@@ -697,24 +731,110 @@ c    ground elevation using standard atmosphere relations
       end do
       end do
 
-
-c large scale precipitation
-c convective  precipitation
-c   the wrf output files contain these as "accumulated totals"
-c   I need to find out if these are accumulated over the output
-c       file frequency, or over the total run.
-c   For now, set to zero
-c total cloud cover
-c   Doesn't appear to be any 2-d cloud cover field in the
-c       wrf output.
-c   For now, set to zero
+c AD: precipitation, large scale and convective
+c     We have information on both from WRF but it is in units of
+c     accumulated precipitation since grid start. 
+      ! first, reinitialize precipitation fields
       do j = 0, nyn(l)-1
       do i = 0, nxn(l)-1
-          lsprecn(i,j,1,n,l) = 0.0
-          convprecn(i,j,1,n,l) = 0.0
-          tccn(i,j,1,n,l) = 0.0
+        alsprecn(i,j,1,n,l) = 0.0
+        aconvprecn(i,j,1,n,l) = 0.0
       end do
       end do
+      ! second, read each precipitation variable and add it's
+      ! contribution to the total precipitation
+      ! AD: this section has plenty of repetitive code and could
+      ! AD: use some tidying up...
+      ! AD: The precipitation fields could be gathered with less
+      ! AD: file reads by using SR (fraction of frozen precip)
+      ! AD: However, this is not used in some schemes with frozen
+      ! AD: precipitation so we do it the slow way for better
+      ! AD: compatibility.
+
+      ! CONVECTIVE PRECIPITATION
+      varname='RAINC'
+      call read_ncwrfout_1realfield( ierr, idiagaa, fnamenc,
+     &varname, dumaprecn(0,0,1,n),
+     &itime,
+     &ndims, ndims_exp, ndims_max, 
+     &lendim, lendim_exp, lendim_max )
+      do j = 0, nyn(l)-1
+      do i = 0, nxn(l)-1
+        aconvprecn(i,j,1,n,l) =
+     &  aconvprecn(i,j,1,n,l)+dumaprecn(i,j,1,n)
+      end do
+      end do
+
+      varname='RAINSH'
+      call read_ncwrfout_1realfield( ierr, idiagaa, fnamenc,
+     &varname, dumaprecn(0,0,1,n),
+     &itime,
+     &ndims, ndims_exp, ndims_max, 
+     &lendim, lendim_exp, lendim_max )
+      do j = 0, nyn(l)-1
+      do i = 0, nxn(l)-1
+        aconvprecn(i,j,1,n,l) =
+     &  aconvprecn(i,j,1,n,l)+dumaprecn(i,j,1,n)
+      end do
+      end do
+
+      ! NON-CONVECTIVE PRECIPITATION
+
+      varname='RAINNC'
+      call read_ncwrfout_1realfield( ierr, idiagaa, fnamenc,
+     &varname, dumaprecn(0,0,1,n),
+     &itime,
+     &ndims, ndims_exp, ndims_max, 
+     &lendim, lendim_exp, lendim_max )
+      do j = 0, nyn(l)-1
+      do i = 0, nxn(l)-1
+        alsprecn(i,j,1,n,l) =
+     &  alsprecn(i,j,1,n,l)+dumaprecn(i,j,1,n)
+      end do
+      end do
+
+      varname='SNOWNC'
+      call read_ncwrfout_1realfield( ierr, idiagaa, fnamenc,
+     &varname, dumaprecn(0,0,1,n),
+     &itime,
+     &ndims, ndims_exp, ndims_max, 
+     &lendim, lendim_exp, lendim_max )
+      do j = 0, nyn(l)-1
+      do i = 0, nxn(l)-1
+        alsprecn(i,j,1,n,l) =
+     &  alsprecn(i,j,1,n,l)+dumaprecn(i,j,1,n)
+      end do
+      end do
+
+      varname='GRAUPELNC'
+      call read_ncwrfout_1realfield( ierr, idiagaa, fnamenc,
+     &varname, dumaprecn(0,0,1,n),
+     &itime,
+     &ndims, ndims_exp, ndims_max, 
+     &lendim, lendim_exp, lendim_max )
+      do j = 0, nyn(l)-1
+      do i = 0, nxn(l)-1
+        alsprecn(i,j,1,n,l) =
+     &  alsprecn(i,j,1,n,l)+dumaprecn(i,j,1,n)
+      end do
+      end do
+
+      varname='HAILNC'
+      call read_ncwrfout_1realfield( ierr, idiagaa, fnamenc,
+     &varname, dumaprecn(0,0,1,n),
+     &itime,
+     &ndims, ndims_exp, ndims_max, 
+     &lendim, lendim_exp, lendim_max )
+      do j = 0, nyn(l)-1
+      do i = 0, nxn(l)-1
+        alsprecn(i,j,1,n,l) =
+     &  alsprecn(i,j,1,n,l)+dumaprecn(i,j,1,n)
+      end do
+      end do
+c Done reading precipitation fields, however, so far we only have
+c accumulated precipitation. What we need is hourly, this must be
+c handled by a higher level subr since we only know the current fields
+c here -- we need both these and previous ones.
 
 
 c snow depth

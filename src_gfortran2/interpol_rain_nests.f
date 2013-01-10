@@ -23,6 +23,14 @@ C       o     o     o
 *                                                                           *
 *     15 March 2000                                                         *
 *                                                                           *
+*     19 December 2012: Adam Dingwell                                       *
+*       yy1 and yy2 are only interpolated in space, while yy3 is still      *
+*       interpolated in both space and time.  This is due to the way        *
+*       precipitation is read from the WRF model, there should be no        *
+*       interpolation between time steps for lsprec or convprec!            *
+*       The old parts of this file are kept as comments in case a better    *
+*       way of getting precipitation data is included in a future version.  *
+*                                                                           *
 *****************************************************************************
 *                                                                           *
 * Variables:                                                                *
@@ -95,17 +103,32 @@ C Determine the lower left corner and its distance to the current position
 C Loop over 2 time steps
 ************************
  
+C AD: Comment out the following 8 lines to enable
+C     temporal interpolation of precipitation
+      yint1 = p1*yy1(ix ,jy ,level,memind(2),ngrid)
+     +      + p2*yy1(ixp,jy ,level,memind(2),ngrid)
+     +      + p3*yy1(ix ,jyp,level,memind(2),ngrid)
+     +      + p4*yy1(ixp,jyp,level,memind(2),ngrid)
+      yint2 = p1*yy2(ix ,jy ,level,memind(2),ngrid)
+     +      + p2*yy2(ixp,jy ,level,memind(2),ngrid)
+     +      + p3*yy2(ix ,jyp,level,memind(2),ngrid)
+     +      + p4*yy2(ixp,jyp,level,memind(2),ngrid)
+C /AD
+
       do 10 m=1,2
         indexh=memind(m)
         
-        y1(m)=p1*yy1(ix ,jy ,level,indexh,ngrid)
-     +      + p2*yy1(ixp,jy ,level,indexh,ngrid)
-     +      + p3*yy1(ix ,jyp,level,indexh,ngrid)
-     +      + p4*yy1(ixp,jyp,level,indexh,ngrid)
-        y2(m)=p1*yy2(ix ,jy ,level,indexh,ngrid)
-     +      + p2*yy2(ixp,jy ,level,indexh,ngrid)
-     +      + p3*yy2(ix ,jyp,level,indexh,ngrid)
-     +      + p4*yy2(ixp,jyp,level,indexh,ngrid)
+C AD: Uncomment the following 8 lines to enable
+C     temporal interpolation of precipitation
+c       y1(m)=p1*yy1(ix ,jy ,level,indexh,ngrid)
+c    +      + p2*yy1(ixp,jy ,level,indexh,ngrid)
+c    +      + p3*yy1(ix ,jyp,level,indexh,ngrid)
+c    +      + p4*yy1(ixp,jyp,level,indexh,ngrid)
+c       y2(m)=p1*yy2(ix ,jy ,level,indexh,ngrid)
+c    +      + p2*yy2(ixp,jy ,level,indexh,ngrid)
+c    +      + p3*yy2(ix ,jyp,level,indexh,ngrid)
+c    +      + p4*yy2(ixp,jyp,level,indexh,ngrid)
+c /AD
 10      y3(m)=p1*yy3(ix ,jy ,level,indexh,ngrid)
      +      + p2*yy3(ixp,jy ,level,indexh,ngrid)
      +      + p3*yy3(ix ,jyp,level,indexh,ngrid)
@@ -120,9 +143,11 @@ C 2.) Temporal interpolation (linear)
       dt2=float(itime2-itime)
       dt=dt1+dt2
 
-      yint1=(y1(1)*dt2+y1(2)*dt1)/dt
-      yint2=(y2(1)*dt2+y2(2)*dt1)/dt
+C AD: Uncomment the following 2 lines to enable
+C     temporal interpolation of precipitation
+c     yint1=(y1(1)*dt2+y1(2)*dt1)/dt
+c     yint2=(y2(1)*dt2+y2(2)*dt1)/dt
+C /AD
       yint3=(y3(1)*dt2+y3(2)*dt1)/dt
-
 
       end
