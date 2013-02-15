@@ -79,6 +79,8 @@ C       i/o     i/o     i/o     o  i/oi/oi/o i/o  i/o
 * vdepo              Deposition velocities for all species                     *
 * xt,yt,zt           Particle position                                         *
 *                                                                              *
+* pad                padding, number of grid points                            *
+*                                                                              *
 ********************************************************************************
 
       include 'includepar'
@@ -102,6 +104,9 @@ c     real rhoprof(nzmax),rhogradprof(nzmax)
       parameter(eps=nxmax/3.e5)
       save idummy
 
+      integer pad !AD: number of grid points of padding required 
+                  !    for a particle to be considered as within
+                  !    a nested domain.
 
 !!! CHANGE: TEST OF THE WELL-MIXED CRITERION
 c       integer iclass
@@ -164,8 +169,10 @@ C Furthermore, determine which nesting level to be used
       else
         ngrid=0
         do 22 j=numbnests,1,-1
-          if ((xt.gt.xln(j)).and.(xt.lt.xrn(j)).and.
-     +    (yt.gt.yln(j)).and.(yt.lt.yrn(j))) then
+c         if ((xt.gt.xln(j)).and.(xt.lt.xrn(j)).and.
+c    +    (yt.gt.yln(j)).and.(yt.lt.yrn(j))) then
+          if ((xt.gt.xln(j)+real(pad)).and.(xt.lt.xrn(j)-real(pad)).and.
+     +    (yt.gt.yln(j)+real(pad)).and.(yt.lt.yrn(j)-real(pad))) then
             ngrid=j
             goto 23
           endif

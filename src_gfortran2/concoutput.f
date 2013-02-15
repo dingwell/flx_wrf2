@@ -26,6 +26,10 @@ C            o
 *                         Sparse output option is turned off.                  *
 *     Dec 2005, R. Easter - changed names of "*lon0*" & "*lat0*" variables     *
 *                                                                              *
+*     Dec 2012, A. Dingwell - Included netcdf-output for netcdf forward runs   *
+*     Jan 2013              - Added Mixing ratio to output                     *
+*                                                                              *
+*                                                                              *
 ********************************************************************************
 *                                                                              *
 * Variables:                                                                   *

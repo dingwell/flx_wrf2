@@ -13,6 +13,11 @@
 *                                                                              *
 *     Dec 2005, R. Easter - changed names of "*lon0*" & "*lat0*" variables     *
 *                                                                              *
+*     Nov 2012, A. Dingwell -                                                  *
+*            Setup NetCDF object and write to file when iouttype=2             *
+*            The same file will be used by concoutput.f and is referenced by   *
+*            the global variable ncid                                          *
+*                                                                              *
 ********************************************************************************
 *                                                                              *
 * Variables:                                                                   *
@@ -67,7 +72,7 @@
       integer jjjjmmdd,ihmmss,i,ix,jy,j
 
       real dxtmp,dytmp
-c     real xp1,yp1,xp2,yp2  ! use vectors instead:
+      real xp1,yp1,xp2,yp2  ! use vectors instead:
       real xv1(nspec),yv1(nspec),xv2(nspec),yv2(nspec)
       real xsw,xne,ysw,yne,tmpx,tmpy,tmplon,tmplat  ! get ll of outgrid
 
@@ -79,25 +84,27 @@ c     real xp1,yp1,xp2,yp2  ! use vectors instead:
       integer ncstr1id,ncstr2id                   ! string length dims
       integer nclvlvid,nclonvid,nclatvid,ncspcvid,ncagevid    ! outgrid dim-variables
       integer ncdimsid(6)
-      character descr*11,units*5,ncname*29
+      character descr*11,units*5,ncname*29,coord*11,coordxy*10
+      integer coordxylen
       integer nctovid ! local netcdf variables
       
       descr = 'description'
       units = 'units'
+      coord = 'coordinates'
+      coordxy = 'XLONG XLAT'
+      coordxylen = 10
 
 
 *************************
 C Open header output file
 *************************
 
-      if(iouttype.eq.0) then
+      if(iouttype.eq.0) then          ! binary
         open(unitheader,file=path(2)(1:len(2))//'header_nest',
      +  form='unformatted',err=998)
       else if (iouttype .eq. 1) then  ! ascii
-        write(*,*) "#### FLEXPART MODEL ERROR!   Nested output not ####
-     +              #### supported for ascii format, select binary ####
-     +              #### or netcdf instead                         ####"
-        stop 2
+        open(unitheader,file=path(2)(1:len(2))//'header',
+     +  form='formatted',err=998)
       else                            ! netcdf
         write(ncname,'(A8,I2.2,A1,I8.8,A1,I6.6,A3)')
      +  'flxout_d',i+1,'_',ibdate,'_',ibtime,'.nc' ! filename
@@ -156,23 +163,21 @@ C Write info on output interval, averaging time, sampling time
       else if (iouttype .eq. 1) then   ! ascii
         write(unitheader,*) loutstep,loutaver,loutsample,iomode_xycoord
       else                            ! netcdf
-        do i=1,numbnests
-          ncret = nf_put_att_int(ncidn,nf_global,
-     +    'OUTPUT_INTERVAL',nf_int,1,loutstep)
-          call check_ncerror(ncret)
+        ncret = nf_put_att_int(ncidn,nf_global,
+     +  'OUTPUT_INTERVAL',nf_int,1,loutstep)
+        call check_ncerror(ncret)
 
-          ncret = nf_put_att_int(ncidn,nf_global,
-     +    'AVERAGING_TIME',nf_int,1,loutaver)
-          call check_ncerror(ncret)
+        ncret = nf_put_att_int(ncidn,nf_global,
+     +  'AVERAGING_TIME',nf_int,1,loutaver)
+        call check_ncerror(ncret)
 
-          ncret = nf_put_att_int(ncidn,nf_global,
-     +    'AVERAGE_SAMPLING',nf_int,1,loutsample)
-          call check_ncerror(ncret)
+        ncret = nf_put_att_int(ncidn,nf_global,
+     +  'AVERAGE_SAMPLING',nf_int,1,loutsample)
+        call check_ncerror(ncret)
 
-          ncret = nf_put_att_int(ncidn,nf_global,
-     +    'IOMODE_XYCOORD',nf_int,1,iomode_xycoord)
-          call check_ncerror(ncret)
-        enddo
+        ncret = nf_put_att_int(ncidn,nf_global,
+     +  'IOMODE_XYCOORD',nf_int,1,iomode_xycoord)
+        call check_ncerror(ncret)
       endif !iouttype
 
 C Write information on output grid setup
@@ -193,6 +198,14 @@ C Write information on output grid setup
         write(unitheader,*) numzgrid,(outheight(j),j=1,numzgrid)
         write(unitheader,*) jjjjmmdd,ihmmss
       else                    ! netcdf
+        ncret = nf_put_att_int(ncid,nf_global,
+     +  'OUTLONLEFT',nf_int,1,xp1)
+        call check_ncerror(ncret)
+
+        ncret = nf_put_att_int(ncid,nf_global,
+     +  'OUTLATLOWER',nf_int,1,yp1)
+        call check_ncerror(ncret)
+
         ncret = nf_put_att_int(ncidn,nf_global,
      +  'WEST-EAST_GRID_DIMENSION',nf_int,1,numxgridn)
         call check_ncerror(ncret)
@@ -204,6 +217,20 @@ C Write information on output grid setup
         ncret = nf_put_att_int(ncidn,nf_global,
      +  'BOTTOM-TOP_GRID_DIMENSION',nf_int,1,numzgrid)
         call check_ncerror(ncret)
+
+        ncret = nf_put_att_int(ncid,nf_global,
+     +  'DX',nf_int,1,dxtmp)
+        call check_ncerror(ncret)
+
+        ncret = nf_put_att_int(ncid,nf_global,
+     +  'DY',nf_int,1,dytmp)
+        call check_ncerror(ncret)
+
+        ! Not sure why these two are used, I include them until I know:
+        ncret = nf_put_att_int(ncid,nf_global,
+     +  'jjjjmmdd',nf_int,1,jjjjmmdd)
+        ncret = nf_put_att_int(ncid,nf_global,
+     +  'ihmmss',nf_int,1,ihmmss)
 
         ! Setup netcdf dimensions
         ncret = nf_def_dim(ncidn,  ! TIME (record)
@@ -325,6 +352,10 @@ C concentration fields
      +  'NSPEC',nf_int,1,nspec)
         call check_ncerror(ncret)
 
+        ncret = nf_put_att_int(ncid,nf_global,
+     +  'NUMRECEPTOR',nf_int,1,numreceptor)
+        call check_ncerror(ncret)
+
         ncret = nf_put_att_int(ncidn,nf_global,
      +  'NAGECLASS',nf_int,1,nageclass)
         call check_ncerror(ncret)
@@ -345,18 +376,17 @@ C concentration fields
          endif
 12    continue
 
+C We will not write information on release points, this information is 
+C already available in the main output file
+*************************************************************************
+
 C Write information on some model switches
 ******************************************
 
       if (iouttype .eq. 0) then      ! binary
         write(unitheader) method,lsubgrid,lconvection
       else if (iouttype .eq. 1) then ! ascii or netcdf
-        write(*,*) " #### FLEXPART MODEL ERROR! netcdf/ascii     #### "
-        write(*,*) " #### nest output not completed, only some   #### "
-        write(*,*) " #### routines exists in writeheader_nests.f #### "
-        write(*,*) " #### Run without nested output or select    #### "
-        write(*,*) " #### binary output format                   #### "
-        stop
+        write(unitheader,*) method,lsubgrid,lconvection
       endif
 C AD: sorry for not finishing this, but it was starting to use up too
 C much of my time.  This is as far I got. In order to make nests work for

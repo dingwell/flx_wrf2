@@ -116,7 +116,8 @@ C Open header output file
       else                            ! netcdf
         write(ncname,'(A11,I8.8,A1,I6.6,A3)')
      +  'flxout_d01_',ibdate,'_',ibtime,'.nc' ! filename
-        ncret = nf_create(path(2)(1:len(2))//ncname,nf_clobber,ncid) ! open & overwrite if it exists
+        ncret = nf_create(path(2)(1:len(2))//ncname,
+     +  nf_clobber,ncid) ! open & overwrite if it exists
         call check_ncerror(ncret)
       endif
 
@@ -526,7 +527,7 @@ c    +  14,'YYYYMMDDhhmmss')
      +      coordxylen,coordxy)
             call check_ncerror(ncret)
           endif
-          if ((iout.eq.2).or.(iout.eq.3).or.(iout.eq.5)) then
+          if ((iout.eq.2).or.(iout.eq.3)) then
             ncret = nf_def_var(ncid,      ! Mixing ratio
      +      'RATIO',NF_REAL,6,ncdimsid,ncravid)
             call check_ncerror(ncret)

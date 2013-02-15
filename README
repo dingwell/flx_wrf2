@@ -40,8 +40,7 @@ src_gfortran2 - contains source code of flexpart-wrf
                 + if necessary to output the following variables in
                 + the wrfout_* files
                   ++ ALT, TKE, TKE_PBL, RAINC, RAINNC, CLDFRA
-                + the code currently does not compute wetdeposition
-                + i will modify it soon to try get the wetdeposition working
+                  ++ RAINSH, SNOWNC, GRAUPELNC, HAILNC
                 + the makefile is tailored for gfortran
 
 SCEN1 - a directory showing sample invocation of FLXPART-WRF
