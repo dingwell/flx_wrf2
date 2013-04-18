@@ -56,7 +56,7 @@
 * ncspcvid               ID for netcdf output species dimension variable       *
 * ncagevid               ID for netcdf output ageclass dimension variable      *
 *                                                                              *
-* ncsrcid                ID for netcdf sources dimension (npoints)             *
+* ncsrcid                ID for netcdf sources dimension (numpoint)            *
 * ncstr2id               ID for netcdf source names/comments dimension (string)*
 * ncsseid                ID for netcdf source start_end dimension (2)          *
 *                                                                              *
@@ -81,7 +81,7 @@
       integer jjjjmmdd,ihmmss,i,ix,jy,j
       real dxtmp,dytmp
       real xp1,yp1,xp2,yp2  ! use vectors instead:
-      real xv1(nspec),yv1(nspec),xv2(nspec),yv2(nspec)
+      real xv1(numpoint),yv1(numpoint),xv2(numpoint),yv2(numpoint)
       real xsw,xne,ysw,yne,tmpx,tmpy,tmplon,tmplat  ! get ll of outgrid
 
       ! NETCDF SPECIFIC VARIABLES
@@ -334,7 +334,7 @@ C Write information on output grid setup
 
         ! Setup dimension variable SPECIES
         ncret = nf_def_var(ncid,
-     +  'SPECIES',nf_real,2,(/ncstr1id,ncspcid/),ncspcvid)
+     +  'SPECIES',nf_char,2,(/ncstr1id,ncspcid/),ncspcvid)
         call check_ncerror(ncret)
         ncret = nf_put_att_text(ncid,ncspcvid,descr,
      +  15,'NAME OF SPECIES')
@@ -669,6 +669,7 @@ C       endif
      +    (/1,i/),(/2,1/),(/yv1(i),yv2(i)/))
           call check_ncerror(ncret)
 
+          write(*,*) zpoint1(i),zpoint2(i)
           ncret = nf_put_vara_real(ncid,ncszvid,  ! SourceZstart_end
      +    (/1,i/),(/2,1/),(/zpoint1(i),zpoint2(i)/))
           call check_ncerror(ncret)
@@ -728,14 +729,15 @@ C Write topography to output file
      +    (/ix+1,1/),(/1,numygrid/),oroout(ix,0:numygrid-1))
           call check_ncerror(ncret)
         endif
+30    continue
 
       if(iouttype.eq.2) then          ! netcdf
         ncret = nf_sync(ncid)   ! Save changes to file
         call check_ncerror(ncret)
+      else
+        close(unitheader)
       endif
-30    continue
 
-      close(unitheader)
       return
 
 

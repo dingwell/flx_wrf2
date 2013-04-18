@@ -47,7 +47,7 @@
 * ncspcvid               ID for netcdf output species dimension variable       *
 * ncagevid               ID for netcdf output ageclass dimension variable      *
 *                                                                              *
-* ncsrcid                ID for netcdf sources dimension (npoints)             *
+* ncsrcid                ID for netcdf sources dimension (numpoint)             *
 * ncstr2id               ID for netcdf source names/comments dimension (string)*
 * ncsseid                ID for netcdf source start_end dimension (2)          *
 *                                                                              *
@@ -73,7 +73,7 @@
 
       real dxtmp,dytmp
       real xp1,yp1,xp2,yp2  ! use vectors instead:
-      real xv1(nspec),yv1(nspec),xv2(nspec),yv2(nspec)
+      real xv1(numpoint),yv1(numpoint),xv2(numpoint),yv2(numpoint)
       real xsw,xne,ysw,yne,tmpx,tmpy,tmplon,tmplat  ! get ll of outgrid
 
       ! NETCDF SPECIFIC VARIABLES
@@ -316,7 +316,7 @@ C Write information on output grid setup
 
         ! Setup dimension variable SPECIES
         ncret = nf_def_var(ncidn,
-     +  'SPECIES',nf_real,2,(/ncstr1id,ncspcid/),ncspcvid)
+     +  'SPECIES',nf_char,2,(/ncstr1id,ncspcid/),ncspcvid)
         call check_ncerror(ncret)
         ncret = nf_put_att_text(ncidn,ncspcvid,descr,
      +  15,'NAME OF SPECIES')
