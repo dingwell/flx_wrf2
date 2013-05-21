@@ -641,6 +641,7 @@ C Variables characterizing the output grid and containing the model results
       real outgrid_swlon,outgrid_swlat,outgrid_nelon,outgrid_nelat 
       real outgridn_swlon,outgridn_swlat,outgridn_nelon,outgridn_nelat
       integer nccovid,ncravid,ncwdvid,ncddvid
+      integer nccovidn,ncravidn,ncwdvidn,ncddvidin
       integer ncret   
 
 
@@ -670,6 +671,9 @@ C ncravid                 netcdf variable ID of mixing ratio grid
 C ncddvid                 netcdf variable ID of drydep grid
 C ncwdvid                 netcdf variable ID of wetdep grid
 C ncret                   netcdf return values, used to check for errors
+C 
+C nccovidn, ncravidn,     Nested output equivalents of the above variable IDs
+C ncddvidn, ncwdvidn
 
 C For forward runs, the 4th dimension of gridunc (3rd dimension of
 C wetgridunc and drygridunc) must be maxspec; for backward runs it must be
