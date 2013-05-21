@@ -17,6 +17,7 @@
 *            Setup NetCDF object and write to file when iouttype=2             *
 *            The same file will be used by concoutput.f and is referenced by   *
 *            the global variable ncid                                          *
+*              -- NOT FINISHED!! --                                            *
 *                                                                              *
 ********************************************************************************
 *                                                                              *
