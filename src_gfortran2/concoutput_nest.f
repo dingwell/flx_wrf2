@@ -26,6 +26,9 @@ C                                  i     i
 *                         Sparse output option is turned off.                  *
 *     Dec 2005, R. Easter - changed names of "*lon0*" & "*lat0*" variables     *
 *                                                                              *
+*     Jun 2013, A. Dingwell - Included netcdf-output for forward runs          *
+*                                                                              *
+*                                                                              *
 ********************************************************************************
 *                                                                              *
 * Variables:                                                                   *
@@ -35,14 +38,17 @@ C                                  i     i
 * nspeciesdim     either nspec (forward runs), or numpoint (backward runs)     *
 * tot_mu          1 for forward, initial mass mixing ration for backw. runs    *
 * maxpointspec    maxspec for forward runs, maxpoint for backward runs         *
+* ncirec          netcdf record coordinate                                     *
 *                                                                              *
 ********************************************************************************
 
       include 'includepar'
       include 'includecom'
+      include 'netcdf.inc'
 
       double precision jul
       integer itime,ix,jy,kz,k,l,iix,jjy,kzz,nage,jjjjmmdd,ihmmss
+      integer ncirec
       integer ncells(maxpointspec,maxageclass)
       integer ncellsd(maxpointspec,maxageclass)
       integer ncellsw(maxpointspec,maxageclass),nspeciesdim
@@ -60,7 +66,7 @@ C                                  i     i
      +maxageclass)
       real wetgridsigman(0:maxxgridn-1,0:maxygridn-1,maxpointspec,
      +maxageclass)
-      real auxgrid(nclassunc)
+      real auxgrid(nclassunc),gridtotal,gridsigmatotal,gridtotalunc
       real factorn(0:maxxgridn-1,0:maxygridn-1,maxzgrid)
       real halfheight,dz,dz1,dz2,tot_mu(maxpointspec)
       parameter(weightair=28.97)
@@ -77,8 +83,15 @@ C Determine current calendar date, needed for the file name
       call caldate(jul,jjjjmmdd,ihmmss)
       write(adate,'(i8.8)') jjjjmmdd
       write(atime,'(i6.6)') ihmmss
-c     write(unitdates,'(a)') adate//atime
+      write(unitdates,'(a)') adate//atime
 
+C For netcdf, we need an index for the record dimension:
+********************************************************
+
+      if(iouttype.eq.2) then
+        ncirec = itime/3600
+        write(*,*) "NetCDF: writing to nest record index = ",ncirec
+      endif
 
 C For forward simulations, output fields have dimension MAXSPEC,
 C for backward simulations, output fields have dimension MAXPOINT.
@@ -159,11 +172,12 @@ C more efficient in terms of storage space. This is checked for
 C every species and for every age class
 ***************************************************************
 
-      do 10 k=1,nspeciesdim
-        do 10 nage=1,nageclass
-          ncellsw(k,nage)=0
-          ncellsd(k,nage)=0
-10        ncells(k,nage)=0
+      if(iouttype.eq.0.or.iouttype.eq.1) then
+        do 10 k=1,nspeciesdim
+          do 10 nage=1,nageclass
+            ncellsw(k,nage)=0
+            ncellsd(k,nage)=0
+10          ncells(k,nage)=0
 
       do 20 k=1,nspeciesdim
         do 20 nage=1,nageclass
@@ -205,6 +219,7 @@ C line). Then, 2.5 below should be changed to 1.5 for optimum efficiency.
             sparse(k,nage)=.false.
           endif
 15        continue
+        endif
 
 
 ********************************************************************
@@ -297,15 +312,15 @@ C Wet deposition
                   if (wetgridn(ix,jy,k,nage).gt.0.) write(unitoutgrid)
      +            ix+jy*numxgridn,1.e12*wetgridn(ix,jy,k,nage)/
      +            arean(ix,jy)
-cc   +            ,1.e12*wetgridsigman(ix,jy,k,nage)/arean(ix,jy)
+     +            ,1.e12*wetgridsigman(ix,jy,k,nage)/arean(ix,jy)
 31                continue
               write(unitoutgrid) -999,999.,999.
             else
               write(unitoutgrid) 2
-              do 32 ix=0,numxgridn-1
-32              write(unitoutgrid) (1.e12*wetgridn(ix,jy,k,nage)/
+              do 310 ix=0,numxgridn-1
+310             write(unitoutgrid) (1.e12*wetgridn(ix,jy,k,nage)/
      +          arean(ix,jy)
-cc   +          ,1.e12*wetgridsigman(ix,jy,k,nage)/arean(ix,jy)
+     +          ,1.e12*wetgridsigman(ix,jy,k,nage)/arean(ix,jy)
      +          ,jy=0,numygridn-1)
             endif
             endif
@@ -317,115 +332,149 @@ cc   +          ,1.e12*wetgridsigman(ix,jy,k,nage)/arean(ix,jy)
                   if (wetgridn(ix,jy,k,nage).gt.0.) write(unitoutgrid,*)
      +            ix+jy*numxgridn,1.e12*wetgridn(ix,jy,k,nage)/
      +            arean(ix,jy)
-cc   +            ,1.e12*wetgridsigman(ix,jy,k,nage)/arean(ix,jy)
+     +            ,1.e12*wetgridsigman(ix,jy,k,nage)/arean(ix,jy)
 311               continue
               write(unitoutgrid,*) -999,999.,999.
             else
               write(unitoutgrid,*) 2
-              do 321 jy=0,numygridn-1
-              do 321 ix=0,numxgridn-1
-321             write(unitoutgrid,*) (1.e12*wetgridn(ix,jy,k,nage)/
-     +          arean(ix,jy))
-cc   +          ,1.e12*wetgridsigman(ix,jy,k,nage)/arean(ix,jy)
+              do 312 jy=0,numygridn-1
+              do 312 ix=0,numxgridn-1
+312             write(unitoutgrid,*) 1.e12*wetgridn(ix,jy,k,nage)/
+     +          arean(ix,jy)
+     +          ,1.e12*wetgridsigman(ix,jy,k,nage)/arean(ix,jy)
             endif
             endif
+
+            if (iouttype.eq.2) then
+              !write(*,*) "NetCDF: Writing nested wet deposition field"
+              do 313 jy=0,numygridn-1
+                do 313 ix=0,numxgridn-1
+c               if(wetgrid(ix,jy,k,nage).gt.0)
+c    +            write(*,*) wetgrid(ix,jy,k,nage)
+                ncret = nf_put_vara_real(ncidn,ncwdvidn,
+     +          (/ix+1,jy+1,k,nage,ncirec/),(/1,1,1,1,1/),
+     +          1.e12*wetgridn(ix,jy,k,nage)/arean(ix,jy))
+313             call check_ncerror(ncret)
+            endif !iouttype.eq.2
 
 C Dry deposition
             if (iouttype.eq.0) then
             if (sparsed(k,nage)) then
               write(unitoutgrid) 1
-              do 33 jy=0,numygridn-1
-                do 33 ix=0,numxgridn-1
+              do 32 jy=0,numygridn-1
+                do 32 ix=0,numxgridn-1
                   if (drygridn(ix,jy,k,nage).gt.0.) write(unitoutgrid)
      +            ix+jy*numxgridn,1.e12*drygridn(ix,jy,k,nage)/
      +            arean(ix,jy)
-cc   +            ,1.e12*drygridsigman(ix,jy,k,nage)/arean(ix,jy)
-33                continue
+     +            ,1.e12*drygridsigman(ix,jy,k,nage)/arean(ix,jy)
+32                continue
               write(unitoutgrid) -999,999.,999.
             else
               write(unitoutgrid) 2
-              do 34 ix=0,numxgridn-1
-34              write(unitoutgrid) (1.e12*drygridn(ix,jy,k,nage)/
+              do 320 ix=0,numxgridn-1
+320              write(unitoutgrid) (1.e12*drygridn(ix,jy,k,nage)/
      +          arean(ix,jy)
-cc   +          ,1.e12*drygridsigman(ix,jy,k,nage)/arean(ix,jy)
+     +          ,1.e12*drygridsigman(ix,jy,k,nage)/arean(ix,jy)
      +          ,jy=0,numygridn-1)
             endif
             endif
             if (iouttype.eq.1) then
             if (sparsed(k,nage)) then
               write(unitoutgrid,*) 1
-              do 331 jy=0,numygridn-1
-                do 331 ix=0,numxgridn-1
+              do 321 jy=0,numygridn-1
+                do 321 ix=0,numxgridn-1
                   if (drygridn(ix,jy,k,nage).gt.0.) write(unitoutgrid,*)
      +            ix+jy*numxgridn,1.e12*drygridn(ix,jy,k,nage)/
      +            arean(ix,jy)
-cc   +            ,1.e12*drygridsigman(ix,jy,k,nage)/arean(ix,jy)
-331               continue
+     +            ,1.e12*drygridsigman(ix,jy,k,nage)/arean(ix,jy)
+321               continue
               write(unitoutgrid,*) -999,999.,999.
             else
               write(unitoutgrid,*) 2
-              do 341 jy=0,numygridn-1
-              do 341 ix=0,numxgridn-1
-341             write(unitoutgrid,*) (1.e12*drygridn(ix,jy,k,nage)/
+              do 322 jy=0,numygridn-1
+              do 322 ix=0,numxgridn-1
+322             write(unitoutgrid,*) (1.e12*drygridn(ix,jy,k,nage)/
      +          arean(ix,jy))
-cc   +          ,1.e12*drygridsigman(ix,jy,k,nage)/arean(ix,jy)
+     +          ,1.e12*drygridsigman(ix,jy,k,nage)/arean(ix,jy)
             endif
             endif
+
+            if (iouttype.eq.2) then
+              !write(*,*) "NetCDF: Writing nested dry deposition field"
+              do 323 jy=0,numygridn-1
+                do 323 ix=0,numxgridn-1
+323             ncret = nf_put_vara_real(ncidn,ncddvidn,
+     +          (/ix+1,jy+1,k,nage,ncirec/),(/1,1,1,1,1/),
+     +          1.e12*drygridn(ix,jy,k,nage)/arean(ix,jy))
+                call check_ncerror(ncret)
+            endif !iouttype.eq.2
 
 C Concentrations
             if (iouttype.eq.0) then 
             if (sparse(k,nage)) then
               write(unitoutgrid) 1
-              do 35 kz=1,numzgrid
-                do 35 jy=0,numygridn-1
-                  do 35 ix=0,numxgridn-1
+              do 33 kz=1,numzgrid
+                do 33 jy=0,numygridn-1
+                  do 33 ix=0,numxgridn-1
                     if (gridn(ix,jy,kz,k,nage).gt.0.) write(unitoutgrid)
      +              ix+jy*numxgridn+kz*numxgridn*numygridn,
      +              gridn(ix,jy,kz,k,nage)*factorn(ix,jy,kz)/tot_mu(k) 
-cc   +              ,gridsigman(ix,jy,kz,k,nage)*factorn(ix,jy,kz)/
-cc   +              tot_mu(k)
-35                  continue
+     +              ,gridsigman(ix,jy,kz,k,nage)*factorn(ix,jy,kz)/
+     +              tot_mu(k)
+33                  continue
               write(unitoutgrid) -999,999.,999.
             else
               write(unitoutgrid) 2
-              do 36 kz=1,numzgrid
-                do 36 ix=0,numxgridn-1
-36                write(unitoutgrid) (gridn(ix,jy,kz,k,nage)*
+              do 330 kz=1,numzgrid
+                do 330 ix=0,numxgridn-1
+330                write(unitoutgrid) (gridn(ix,jy,kz,k,nage)*
      +            factorn(ix,jy,kz)/tot_mu(k)
-cc   +            ,gridsigman(ix,jy,kz,k,nage)*factorn(ix,jy,kz)/
-cc   +            tot_mu(k)
+     +            ,gridsigman(ix,jy,kz,k,nage)*factorn(ix,jy,kz)/
+     +            tot_mu(k)
      +            ,jy=0,numygridn-1)
             endif
             endif
             if (iouttype.eq.1) then 
             if (sparse(k,nage)) then
               write(unitoutgrid,*) 1
-              do 351 kz=1,numzgrid
-                do 351 jy=0,numygridn-1
-                  do 351 ix=0,numxgridn-1
+              do 331 kz=1,numzgrid
+                do 331 jy=0,numygridn-1
+                  do 331 ix=0,numxgridn-1
                   if (gridn(ix,jy,kz,k,nage).gt.0.) write(unitoutgrid,*)
      +              ix+jy*numxgridn+kz*numxgridn*numygridn,
      +              gridn(ix,jy,kz,k,nage)*factorn(ix,jy,kz)/tot_mu(k) 
-cc   +              ,gridsigman(ix,jy,kz,k,nage)*factorn(ix,jy,kz)/
-cc   +              tot_mu(k)
-351                 continue
+     +              ,gridsigman(ix,jy,kz,k,nage)*factorn(ix,jy,kz)/
+     +              tot_mu(k)
+331                 continue
               write(unitoutgrid,*) -999,999.,999.
             else
               write(unitoutgrid,*) 2
-              do 361 kz=1,numzgrid
-                do 361 jy=0,numygridn-1
-                do 361 ix=0,numxgridn-1
-361               write(unitoutgrid,*) (gridn(ix,jy,kz,k,nage)*
+              do 332 kz=1,numzgrid
+                do 332 jy=0,numygridn-1
+                do 332 ix=0,numxgridn-1
+332               write(unitoutgrid,*) (gridn(ix,jy,kz,k,nage)*
      +            factorn(ix,jy,kz)/tot_mu(k))
-cc   +            ,gridsigman(ix,jy,kz,k,nage)*factorn(ix,jy,kz)/
-cc   +            tot_mu(k)
+     +            ,gridsigman(ix,jy,kz,k,nage)*factorn(ix,jy,kz)/
+     +            tot_mu(k)
             endif
             endif
+
+            if (iouttype.eq.2) then
+              do 333 kz=1,numzgrid
+              do 333 jy=0,numygridn-1
+              do 333 ix=0,numxgridn-1
+                ncret = nf_put_vara_real(ncidn,nccovidn,
+     +          (/ix+1,jy+1,kz,k,nage,ncirec/),(/1,1,1,1,1,1/),
+     +          gridn(ix,jy,kz,k,nage)*factorn(ix,jy,kz)/tot_mu(k))
+                call check_ncerror(ncret)
+333           continue
+            endif !iouttype.eq.2
+
 30          continue
 
         close(unitoutgrid)
 
-      endif
+      endif !iout==(1,3 or 5)
 
 
 C Mixing ratio output
@@ -441,7 +490,7 @@ C Mixing ratio output
 
 
         if (iouttype.eq.0) write(unitoutgridppt) itime
-        if (iouttype.eq.1) write(unitoutgridppt) itime
+        if (iouttype.eq.1) write(unitoutgridppt,*) itime
         do 130 k=1,nspeciesdim
           do 130 nage=1,nageclass
 
@@ -454,7 +503,7 @@ C Wet deposition
                  if (wetgridn(ix,jy,k,nage).gt.0.) write(unitoutgridppt)
      +            ix+jy*numxgridn,1.e12*wetgridn(ix,jy,k,nage)/
      +            arean(ix,jy)
-cc   +            ,1.e12*wetgridsigman(ix,jy,k,nage)/arean(ix,jy)
+     +            ,1.e12*wetgridsigman(ix,jy,k,nage)/arean(ix,jy)
 131               continue
               write(unitoutgridppt) -999,999.,999.
             else
@@ -462,7 +511,7 @@ cc   +            ,1.e12*wetgridsigman(ix,jy,k,nage)/arean(ix,jy)
               do 132 ix=0,numxgridn-1
 132             write(unitoutgridppt) (1.e12*wetgridn(ix,jy,k,nage)/
      +          arean(ix,jy)
-cc   +          ,1.e12*wetgridsigman(ix,jy,k,nage)/arean(ix,jy)
+     +          ,1.e12*wetgridsigman(ix,jy,k,nage)/arean(ix,jy)
      +          ,jy=0,numygridn-1)
             endif
             endif
@@ -474,18 +523,30 @@ cc   +          ,1.e12*wetgridsigman(ix,jy,k,nage)/arean(ix,jy)
                if (wetgridn(ix,jy,k,nage).gt.0.) write(unitoutgridppt,*)
      +            ix+jy*numxgridn,1.e12*wetgridn(ix,jy,k,nage)/
      +            arean(ix,jy)
-cc   +            ,1.e12*wetgridsigman(ix,jy,k,nage)/arean(ix,jy)
+     +            ,1.e12*wetgridsigman(ix,jy,k,nage)/arean(ix,jy)
 1311              continue
               write(unitoutgridppt,*) -999,999.,999.
             else
               write(unitoutgridppt,*) 2
-              do 1321 jy=0,numygridn-1
-              do 1321 ix=0,numxgridn-1
-1321            write(unitoutgridppt,*) (1.e12*wetgridn(ix,jy,k,nage)/
+              do 1312 jy=0,numygridn-1
+              do 1312 ix=0,numxgridn-1
+1312            write(unitoutgridppt,*) (1.e12*wetgridn(ix,jy,k,nage)/
      +          arean(ix,jy))
-cc   +          ,1.e12*wetgridsigman(ix,jy,k,nage)/arean(ix,jy)
+     +          ,1.e12*wetgridsigman(ix,jy,k,nage)/arean(ix,jy)
             endif
             endif
+
+            if (iouttype.eq.2.and.iout.eq.2) then
+              !write(*,*) "NetCDF: Writing nested wet deposition field"
+              do 1313 jy=0,numygridn-1
+                do 1313 ix=0,numxgridn-1
+                ncret = nf_put_vara_real(ncidn,ncwdvidn,
+     +          (/ix+1,jy+1,k,nage,ncirec/),(/1,1,1,1,1/),
+     +          1.e12*wetgridn(ix,jy,k,nage)/arean(ix,jy))
+                call check_ncerror(ncret)
+1313            continue
+                !TODO add wetgridsigma
+            endif !iouttype.eq.2
 
 C Dry deposition
             if (iouttype.eq.0) then
@@ -504,7 +565,7 @@ cc   +            ,1.e12*drygridsigman(ix,jy,k,nage)/arean(ix,jy)
               do 134 ix=0,numxgridn-1
 134             write(unitoutgridppt) (1.e12*drygridn(ix,jy,k,nage)/
      +          arean(ix,jy)
-cc   +          ,1.e12*drygridsigman(ix,jy,k,nage)/arean(ix,jy)
+     +          ,1.e12*drygridsigman(ix,jy,k,nage)/arean(ix,jy)
      +          ,jy=0,numygridn-1)
             endif
             endif
@@ -516,18 +577,30 @@ cc   +          ,1.e12*drygridsigman(ix,jy,k,nage)/arean(ix,jy)
                if (drygridn(ix,jy,k,nage).gt.0.) write(unitoutgridppt,*)
      +            ix+jy*numxgridn,1.e12*drygridn(ix,jy,k,nage)/
      +            arean(ix,jy)
-cc   +            ,1.e12*drygridsigman(ix,jy,k,nage)/arean(ix,jy)
+     +            ,1.e12*drygridsigman(ix,jy,k,nage)/arean(ix,jy)
 1331              continue
               write(unitoutgridppt,*) -999,999.,999.
             else
               write(unitoutgridppt,*) 2
-              do 1341 jy=0,numygridn-1
-              do 1341 ix=0,numxgridn-1
-1341            write(unitoutgridppt,*) (1.e12*drygridn(ix,jy,k,nage)/
+              do 1332 jy=0,numygridn-1
+              do 1332 ix=0,numxgridn-1
+1332            write(unitoutgridppt,*) (1.e12*drygridn(ix,jy,k,nage)/
      +          arean(ix,jy))
-cc   +          ,1.e12*drygridsigman(ix,jy,k,nage)/arean(ix,jy)
+     +          ,1.e12*drygridsigman(ix,jy,k,nage)/arean(ix,jy)
             endif
             endif
+
+            if (iouttype.eq.2.and.iout.eq.2) then
+              do 1333 jy=0,numygridn-1
+                do 1333 ix=0,numxgridn-1
+                ncret = nf_put_vara_real(ncidn,ncwdvidn,
+     +          (/ix+1,jy+1,k,nage,ncirec/),(/1,1,1,1,1/),
+     +          1.e12*drygridn(ix,jy,k,nage)/arean(ix,jy))
+                call check_ncerror(ncret)
+                !TODO add drygridsigma
+1333            continue
+            endif !iouttype.eq.2
+
 
 C Mixing ratios
             if (iouttype.eq.0) then
@@ -542,9 +615,9 @@ C Mixing ratios
      +              1.e12*gridn(ix,jy,kz,k,nage)/volumen(ix,jy,kz)/
      +              outnum*
      +              weightair/weightmolar(k)/densityoutgridn(ix,jy,kz)
-cc   +             ,1.e12*gridsigman(ix,jy,kz,k,nage)/volumen(ix,jy,kz)/
-cc   +              outnum*weightair/weightmolar(k)/
-cc   +              densityoutgridn(ix,jy,kz)
+     +             ,1.e12*gridsigman(ix,jy,kz,k,nage)/volumen(ix,jy,kz)/
+     +              outnum*weightair/weightmolar(k)/
+     +              densityoutgridn(ix,jy,kz)
 135                 continue
               write(unitoutgridppt) -999,999.,999.
             else
@@ -554,9 +627,9 @@ cc   +              densityoutgridn(ix,jy,kz)
 136               write(unitoutgridppt) (1.e12*gridn(ix,jy,kz,k,nage)/
      +            volumen(ix,jy,kz)/outnum*weightair/weightmolar(k)/
      +            densityoutgridn(ix,jy,kz) 
-cc   +            ,1.e12*gridsigman(ix,jy,kz,k,nage)/
-cc   +            volumen(ix,jy,kz)/outnum*weightair/weightmolar(k)/
-cc   +            densityoutgridn(ix,jy,kz)
+     +            ,1.e12*gridsigman(ix,jy,kz,k,nage)/
+     +            volumen(ix,jy,kz)/outnum*weightair/weightmolar(k)/
+     +            densityoutgridn(ix,jy,kz)
      +            ,jy=0,numygridn-1)
             endif
             endif
@@ -572,9 +645,9 @@ cc   +            densityoutgridn(ix,jy,kz)
      +              1.e12*gridn(ix,jy,kz,k,nage)/volumen(ix,jy,kz)/
      +              outnum*
      +              weightair/weightmolar(k)/densityoutgridn(ix,jy,kz)
-cc   +             ,1.e12*gridsigman(ix,jy,kz,k,nage)/volumen(ix,jy,kz)/
-cc   +              outnum*weightair/weightmolar(k)/
-cc   +              densityoutgridn(ix,jy,kz)
+     +             ,1.e12*gridsigman(ix,jy,kz,k,nage)/volumen(ix,jy,kz)/
+     +              outnum*weightair/weightmolar(k)/
+     +              densityoutgridn(ix,jy,kz)
 1351                continue
               write(unitoutgridppt,*) -999,999.,999.
             else
@@ -585,17 +658,33 @@ cc   +              densityoutgridn(ix,jy,kz)
 1361              write(unitoutgridppt,*) (1.e12*gridn(ix,jy,kz,k,nage)/
      +            volumen(ix,jy,kz)/outnum*weightair/weightmolar(k)/
      +            densityoutgridn(ix,jy,kz))
-cc   +            ,1.e12*gridsigman(ix,jy,kz,k,nage)/
-cc   +            volumen(ix,jy,kz)/outnum*weightair/weightmolar(k)/
-cc   +            densityoutgridn(ix,jy,kz)
+     +            ,1.e12*gridsigman(ix,jy,kz,k,nage)/
+     +            volumen(ix,jy,kz)/outnum*weightair/weightmolar(k)/
+     +            densityoutgridn(ix,jy,kz)
             endif
             endif
+            if (iouttype.eq.2) then
+              do 137 kz=1,numzgrid
+              do 137 jy=0,numygridn-1
+              do 137 ix=0,numxgridn-1
+                ncret = nf_put_vara_real(ncidn,ncravidn,
+     +          1e12*gridn(ix,jy,kz,k,nage)/volumen(ix,jy,kz)/outnum*
+     +          weightair/weightmolar(k)/densityoutgridn(ix,jy,kz))
+                call check_ncerror(ncret)
+137           continue
+            endif !iouttype.eq.2
 130         continue
 
         close(unitoutgridppt)
 
       endif
 
+C NetCDF: write changes to file:
+      if(iouttype.eq.2) then
+        !write(*,*) "NetCDF: Syncing nested output file"
+        ncret = nf_sync(ncid)
+        call check_ncerror(ncret)
+      endif
 
 C Reinitialization of grid
 **************************

@@ -641,7 +641,7 @@ C Variables characterizing the output grid and containing the model results
       real outgrid_swlon,outgrid_swlat,outgrid_nelon,outgrid_nelat 
       real outgridn_swlon,outgridn_swlat,outgridn_nelon,outgridn_nelat
       integer nccovid,ncravid,ncwdvid,ncddvid
-      integer nccovidn,ncravidn,ncwdvidn,ncddvidin
+      integer nccovidn,ncravidn,ncwdvidn,ncddvidn
       integer ncret   
 
 
