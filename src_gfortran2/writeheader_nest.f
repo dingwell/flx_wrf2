@@ -16,7 +16,7 @@
 *     Nov 2012, A. Dingwell -                                                  *
 *            Setup NetCDF object and write to file when iouttype=2             *
 *            The same file will be used by concoutput.f and is referenced by   *
-*            the global variable ncid                                          *
+*            the global variable ncidn                                         *
 *              -- NOT FINISHED!! --                                            *
 *                                                                              *
 ********************************************************************************
@@ -199,11 +199,11 @@ C Write information on output grid setup
         write(unitheader,*) numzgrid,(outheight(j),j=1,numzgrid)
         write(unitheader,*) jjjjmmdd,ihmmss
       else                    ! netcdf
-        ncret = nf_put_att_int(ncid,nf_global,
+        ncret = nf_put_att_int(ncidn,nf_global,
      +  'OUTLONLEFT',nf_int,1,xp1)
         call check_ncerror(ncret)
 
-        ncret = nf_put_att_int(ncid,nf_global,
+        ncret = nf_put_att_int(ncidn,nf_global,
      +  'OUTLATLOWER',nf_int,1,yp1)
         call check_ncerror(ncret)
 
@@ -219,18 +219,18 @@ C Write information on output grid setup
      +  'BOTTOM-TOP_GRID_DIMENSION',nf_int,1,numzgrid)
         call check_ncerror(ncret)
 
-        ncret = nf_put_att_int(ncid,nf_global,
+        ncret = nf_put_att_int(ncidn,nf_global,
      +  'DX',nf_int,1,dxtmp)
         call check_ncerror(ncret)
 
-        ncret = nf_put_att_int(ncid,nf_global,
+        ncret = nf_put_att_int(ncidn,nf_global,
      +  'DY',nf_int,1,dytmp)
         call check_ncerror(ncret)
 
         ! Not sure why these two are used, I include them until I know:
-        ncret = nf_put_att_int(ncid,nf_global,
+        ncret = nf_put_att_int(ncidn,nf_global,
      +  'jjjjmmdd',nf_int,1,jjjjmmdd)
-        ncret = nf_put_att_int(ncid,nf_global,
+        ncret = nf_put_att_int(ncidn,nf_global,
      +  'ihmmss',nf_int,1,ihmmss)
 
         ! Setup netcdf dimensions
@@ -333,7 +333,7 @@ C Write information on output grid setup
         ncret = nf_put_att_text(ncidn,ncagevid,units,1,'s')
         call check_ncerror(ncret)
 
-c       ncret = nf_def_dim(ncid,nf_global,  ! AGECLASSES
+c       ncret = nf_def_dim(ncidn,nf_global,  ! AGECLASSES
 c      +'species',nageclass,ncageid)
 c       call check_ncerror(ncret)
       endif !iouttype
@@ -353,7 +353,7 @@ C concentration fields
      +  'NSPEC',nf_int,1,nspec)
         call check_ncerror(ncret)
 
-        ncret = nf_put_att_int(ncid,nf_global,
+        ncret = nf_put_att_int(ncidn,nf_global,
      +  'NUMRECEPTOR',nf_int,1,numreceptor)
         call check_ncerror(ncret)
 
@@ -389,28 +389,41 @@ C Write information on some model switches
       else if (iouttype .eq. 1) then ! ascii or netcdf
         write(unitheader,*) method,lsubgrid,lconvection
       endif
-C AD: sorry for not finishing this, but it was starting to use up too
-C much of my time.  This is as far I got. In order to make nests work for
-C netcdf we must create new variable pointers for the nested fields,
-C otherwise they will overwrite the ones used by the mother domain.
-C When writeheader_nest.f is finally working, additional changes are
-C required in concoutput_nest.f similar to my previous modifications in
-C concoutput.f. I might take care of this later, but I have no project
-C planned right now which would benefit from it, so it might take some
-C time.
 
 C Write age class information
 *****************************
 
-      write(unitheader) nageclass,(lage(i),i=1,nageclass)
+      if (iouttype .eq. 0) then
+        write(unitheader) nageclass,(lage(i),i=1,nageclass)
+      else if (iouttype .eq. 0) then
+        write(unitheader,*) nageclass,(lage(i),i=1,nageclass)
+      else
+        ncret = nf_put_var_int(ncidn,ncagevid,lage(1:nageclass))
+        call check_ncerror(ncret)
+      endif
 
 
 C Write topography to output file
 *********************************
 
       do 30 ix=0,numxgridn-1
-30      write(unitheader) (orooutn(ix,jy),jy=0,numygridn-1)
-      close(unitheader)
+        if (iouttype .eq. 0) then
+          write(unitheader) (orooutn(ix,jy),jy=0,numygridn-1)
+        else if (iouttype .eq. 1) then
+          write(unitheader,*) (orooutn(ix,jy),jy=0,numygridn-1)
+        else
+          ncret = nf_put_vara_real(ncidn,nctovid,
+     +    (/ix+1,1/),(/1,numygridn/),orooutn(ix,0:numygridn-1))
+          call check_ncerror(ncret)
+        endif
+30    continue
+      
+      if(iouttype.eq.2) then          ! netcdf
+        ncret = nf_sync(ncid)   ! Save changes to file
+        call check_ncerror(ncret)
+      else
+        close(unitheader)
+      endif
 
       return
 
