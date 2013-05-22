@@ -251,11 +251,11 @@ C Write information on output grid setup
         call check_ncerror(ncret)
 
         ncret = nf_def_dim(ncidn,  ! WEST-EAST
-     +  'west_east',numxgrid,nclonid)
+     +  'west_east',numxgridn,nclonid)
         call check_ncerror(ncret)
 
         ncret = nf_def_dim(ncidn,  ! NORTH-SOUTH
-     +  'south_north',numygrid,nclatid)
+     +  'south_north',numygridn,nclatid)
         call check_ncerror(ncret)
 
         ncret = nf_def_dim(ncidn,  ! BOTTOM-UP
