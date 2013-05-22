@@ -683,7 +683,7 @@ C Mixing ratios
 C NetCDF: write changes to file:
       if(iouttype.eq.2) then
         !write(*,*) "NetCDF: Syncing nested output file"
-        ncret = nf_sync(ncid)
+        ncret = nf_sync(ncidn)
         call check_ncerror(ncret)
       endif
 

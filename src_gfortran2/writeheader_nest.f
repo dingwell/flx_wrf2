@@ -427,6 +427,16 @@ C start, end, coordinates, # of particles, name, mass
      +  11,'degree_east')
         call check_ncerror(ncret)
 
+        ncret = nf_def_var(ncidn,     ! Source start-end X-coord
+     +  'SourceYstart_end',nf_float,2,(/ncsseid,ncsrcid/),ncsyvid)
+        call check_ncerror(ncret)
+        ncret = nf_put_att_text(ncidn,ncsyvid,descr,
+     +  30,'SOUTH/NORTH BOUNDARIES OF SOURCE')
+        call check_ncerror(ncret)
+        ncret = nf_put_att_text(ncidn,ncsyvid,units,
+     +  11,'degree_north')
+        call check_ncerror(ncret)
+
         ncret = nf_def_var(ncidn,     ! Source start-end Z-coord
      +  'SourceZstart_end',nf_float,2,(/ncsseid,ncsrcid/),ncszvid)
         call check_ncerror(ncret)
@@ -570,8 +580,8 @@ C start, end, coordinates, # of particles, name, mass
         ! X,Y-Lon,Lat
         call ll_to_xymeter_wrf(outgridn_swlon,outgridn_swlat,xsw,ysw)
         call ll_to_xymeter_wrf(outgridn_nelon,outgridn_nelat,xne,yne)
-        do jy=1,numygrid
-        do ix=1,numxgrid
+        do jy=1,numygridn
+        do ix=1,numxgridn
           tmpx=xsw+(xne-xsw)*float(ix-1)/float(numxgridn-1)
           tmpy=ysw+(yne-ysw)*float(jy-1)/float(numygridn-1)
           call xymeter_to_ll_wrf(tmpx,tmpy,tmplon,tmplat)
