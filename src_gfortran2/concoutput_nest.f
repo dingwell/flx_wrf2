@@ -400,14 +400,19 @@ C Dry deposition
             endif
 
             if (iouttype.eq.2) then
-              !write(*,*) "NetCDF: Writing nested dry deposition field"
+              write(*,*) "NetCDF: Writing nested dry deposition field"
+              write(*,*) "numy,numx",numygridn-1,numxgridn-1
               do 323 jy=0,numygridn-1
                 do 323 ix=0,numxgridn-1
+                write(*,*) "jy,ix:",jy,ix !DEBUG
+                write(*,*) "drygridn,arean",        !DEBUG
+     +          drygridn(ix,jy,k,nage),arean(ix,jy) !DEBUG
 323             ncret = nf_put_vara_real(ncidn,ncddvidn,
      +          (/ix+1,jy+1,k,nage,ncirec/),(/1,1,1,1,1/),
      +          1.e12*drygridn(ix,jy,k,nage)/arean(ix,jy))
                 call check_ncerror(ncret)
             endif !iouttype.eq.2
+      write(*,*) "D"  !DEBUG
 
 C Concentrations
             if (iouttype.eq.0) then 
@@ -434,6 +439,7 @@ C Concentrations
      +            ,jy=0,numygridn-1)
             endif
             endif
+      write(*,*) "D"  !DEBUG
             if (iouttype.eq.1) then 
             if (sparse(k,nage)) then
               write(unitoutgrid,*) 1
@@ -458,6 +464,7 @@ C Concentrations
      +            tot_mu(k)
             endif
             endif
+      write(*,*) "E"  !DEBUG
 
             if (iouttype.eq.2) then
               do 333 kz=1,numzgrid
@@ -471,6 +478,7 @@ C Concentrations
             endif !iouttype.eq.2
 
 30          continue
+      write(*,*) "F"  !DEBUG
 
         close(unitoutgrid)
 

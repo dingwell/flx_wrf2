@@ -180,7 +180,7 @@ C Maximum dimensions of the output grid
 
       integer maxxgrid,maxygrid,maxzgrid,maxxgridn,maxygridn
       integer nclassunc,maxageclass
-      parameter(maxxgrid=300,maxygrid=300,maxxgridn=1,maxygridn=1)
+      parameter(maxxgrid=300,maxygrid=300,maxxgridn=300,maxygridn=300)
       parameter(maxageclass=1,maxzgrid=22,nclassunc=10)
 
 C maxxgrid,maxygrid,maxzgrid    maximum dimensions in x,y,z direction

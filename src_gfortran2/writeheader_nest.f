@@ -107,8 +107,8 @@ C Open header output file
         open(unitheader,file=path(2)(1:len(2))//'header',
      +  form='formatted',err=998)
       else                            ! netcdf
-        write(ncname,'(A8,I2.2,A1,I8.8,A1,I6.6,A3)')
-     +  'flxout_d',i+1,'_',ibdate,'_',ibtime,'.nc' ! filename
+        write(ncname,'(A11,I8.8,A1,I6.6,A3)')
+     +  'flxout_d02_',ibdate,'_',ibtime,'.nc' ! filename
         ncret = nf_create(path(2)(1:len(2))//ncname,
      +  nf_clobber,ncidn) ! open & overwrite if it exists
         call check_ncerror(ncret)
@@ -186,10 +186,22 @@ C Write information on output grid setup
 
       call caldate(bdate,jjjjmmdd,ihmmss)
 
+      if (iomode_xycoord .eq. iomode_xycoord_latlon) then
+        xp1 = outgridn_swlon
+        yp1 = outgridn_swlat
+        dxtmp = (outgridn_nelon-outgridn_swlon)/numxgridn
+        dytmp = (outgridn_nelat-outgridn_swlat)/numygridn
+      else
+        xp1 = out_xm0n
+        yp1 = out_ym0n
+        dxtmp = dxoutn
+        dytmp = dyoutn
+      endif
+
       if (iouttype.eq.0) then ! binary
-        write(unitheader) out_xm0n,out_ym0n,
+        write(unitheader) xp1,yp1,
      +  numxgridn,numygridn,
-     +  dxoutn,dyoutn
+     +  dxtmp,dytmp
         write(unitheader) numzgrid,(outheight(i),i=1,numzgrid)
         write(unitheader) jjjjmmdd,ihmmss
       else if (iouttype.eq.1) then ! ascii
@@ -377,9 +389,253 @@ C concentration fields
          endif
 12    continue
 
-C We will not write information on release points, this information is 
-C already available in the main output file
+C Write information on release points: total number, then for each point:
+C start, end, coordinates, # of particles, name, mass
 *************************************************************************
+      if (iouttype.eq.2) then ! netcdf only
+        ! Define source related attributes
+        ncret = nf_put_att_int(ncidn,nf_global,
+     +  'NUM_RELEASES',nf_int,1,numpoint)
+        call check_ncerror(ncret)
+
+        ! Define Source related variables
+        ncret = nf_def_var(ncidn,     ! Source Name
+     +  'SourceName',nf_char,2,(/ncstr2id,ncsrcid/),ncsnvid)
+        call check_ncerror(ncret)
+        ncret = nf_put_att_text(ncidn,ncsnvid,descr,
+     +  23,'SOURCE IDENTIER/COMMENT')
+        ncret = nf_put_att_text(ncidn,ncsnvid,units,1,'-')
+        call check_ncerror(ncret)
+
+        ncret = nf_def_var(ncidn,     ! Source start-end time
+     +  'SourceTstart_end',nf_int,2,(/ncsseid,ncsrcid/),ncstvid)
+        call check_ncerror(ncret)
+        ncret = nf_put_att_text(ncidn,ncstvid,descr,
+     +  32,'BEGINNING/ENDING TIME OF RELEASE (SECONDS SINCE RUN START)')
+        call check_ncerror(ncret)
+        ncret = nf_put_att_text(ncidn,ncstvid,units,
+     +  1,'s')
+        call check_ncerror(ncret)
+
+        ncret = nf_def_var(ncidn,     ! Source start-end X-coord
+     +  'SourceXstart_end',nf_float,2,(/ncsseid,ncsrcid/),ncsxvid)
+        call check_ncerror(ncret)
+        ncret = nf_put_att_text(ncidn,ncsxvid,descr,
+     +  30,'WEST/EAST BOUNDARIES OF SOURCE')
+        call check_ncerror(ncret)
+        ncret = nf_put_att_text(ncidn,ncsxvid,units,
+     +  11,'degree_east')
+        call check_ncerror(ncret)
+
+        ncret = nf_def_var(ncidn,     ! Source start-end Z-coord
+     +  'SourceZstart_end',nf_float,2,(/ncsseid,ncsrcid/),ncszvid)
+        call check_ncerror(ncret)
+        ncret = nf_put_att_text(ncidn,ncszvid,descr,
+     +  31,'BOTTOM/TOP BOUNDARIES OF SOURCE')
+        call check_ncerror(ncret)
+        ncret = nf_put_att_text(ncidn,ncszvid,units,1,'m')
+        call check_ncerror(ncret)
+        
+        ncret = nf_def_var(ncidn,      ! Number of particles
+     +  'SourceNP',nf_int,1,ncsrcid,ncspvid)
+        call check_ncerror(ncret)
+        ncret = nf_put_att_text(ncidn,ncspvid,descr,
+     +  34,'TOTAL NUMBER OF PARTICLES RELEASED')
+        ncret = nf_put_att_text(ncidn,ncspvid,units,1,'-')
+        call check_ncerror(ncret)
+
+        ncret = nf_def_var(ncidn,     ! Mass Emission
+     +  'SourceXMass',nf_real,2,(/ncspcid,ncsrcid/),ncsmvid)
+        call check_ncerror(ncret)
+        ncret = nf_put_att_text(ncidn,ncsmvid,descr,
+     +  18,'Total mass emitted')
+        call check_ncerror(ncret)
+        ncret = nf_put_att_text(ncidn,ncsmvid,units,2,'kg')
+        call check_ncerror(ncret)
+
+        ! Since we need to exit define mode before we can insert
+        ! variable data, we will include the last file attributes and
+        ! define the last variables here.
+
+        ! OUTPUT VARIABLES (all netcdf variables must be predefined)
+        ncret = nf_def_var(ncidn,     ! Topography
+     +  'TOPO',NF_real,2,ncdimsid(1:2),nctovid)
+        call check_ncerror(ncret)
+        ncret = nf_put_att_text(ncidn,nctovid,descr,
+     +  30,'TERRAIN HEIGHT ABOVE SEA LEVEL')
+        call check_ncerror(ncret)
+        ncret = nf_put_att_text(ncidn,nctovid,units,1,'m')
+        call check_ncerror(ncret)
+        ncret = nf_put_att_text(ncidn,nctovid,coord,coordxylen,coordxy)
+        call check_ncerror(ncret)
+
+        ! Check which output grids should be used
+        if (ldirect .eq. 1) then  ! Forward run
+          ! Deposition grids:
+          ncret = nf_def_var(ncidn,'DRYDEP',NF_REAL, ! Dry deposition
+     +    5,(/nclonid,nclatid,ncspcid,ncageid,ncrecid/),ncddvidn)
+          call check_ncerror(ncret)
+          ncret = nf_put_att_text(ncidn,ncddvidn,descr,
+     +    32,'ACCUMULATED TOTAL DRY DEPOSITION')
+          call check_ncerror(ncret)
+          ncret = nf_put_att_text(ncidn,ncddvidn,units,6,'ng m-2')
+          call check_ncerror(ncret)
+          ncret =
+     +    nf_put_att_text(ncidn,ncddvidn,coord,coordxylen,coordxy)
+          call check_ncerror(ncret)
+
+          ncret = nf_def_var(ncidn,'WETDEP',NF_REAL, ! Wet deposition
+     +    5,(/nclonid,nclatid,ncspcid,ncageid,ncrecid/),ncwdvidn)
+          call check_ncerror(ncret)
+          ncret = nf_put_att_text(ncidn,ncwdvidn,descr,
+     +    32,'ACCUMULATED TOTAL WET DEPOSITION')
+          call check_ncerror(ncret)
+          ncret = nf_put_att_text(ncidn,ncwdvidn,units,6,'ng m-2')
+          call check_ncerror(ncret)
+          ncret =
+     +    nf_put_att_text(ncidn,ncwdvidn,coord,coordxylen,coordxy)
+          call check_ncerror(ncret)
+
+          if ((iout.eq.1).or.(iout.eq.3).or.(iout.eq.5)) then
+            ncret = nf_def_var(ncidn,      ! Concentration
+     +      'CONC',NF_REAL,6,ncdimsid,nccovidn)
+            call check_ncerror(ncret)
+            ncret = nf_put_att_text(ncidn,nccovidn,descr,
+     +      33,'CONCENTRATION OF AIRBORNE SPECIES')
+            call check_ncerror(ncret)
+            ncret = nf_put_att_text(ncidn,nccovidn,units,6,'ng m-3')
+            call check_ncerror(ncret)
+            ncret = nf_put_att_text(ncidn,nccovidn,coord,
+     +      coordxylen,coordxy)
+            call check_ncerror(ncret)
+          endif
+          if ((iout.eq.2).or.(iout.eq.3)) then
+            ncret = nf_def_var(ncidn,     ! Mixing ratio
+     +      'RATIO',NF_REAL,6,ncdimsid,ncravidn)
+            call check_ncerror(ncret)
+            ncret = nf_put_att_text(ncidn,ncravidn,descr,
+     +      37,'MASS MIXING RATIO OF AIRBORNE SPECIES')
+            call check_ncerror(ncret)
+            ncret = nf_put_att_text(ncidn,ncravidn,units,3,'ppt')
+            call check_ncerror(ncret)
+            ncret = nf_put_att_text(ncidn,ncravidn,coord,
+     +      coordxylen,coordxy)
+            call check_ncerror(ncret)
+          endif
+        else                      ! Backward run
+          if (( iout .eq. 1 ).or.( iout .eq. 5 )) then  ! Use restime?
+      write(*,*) '### NETCDF NOT SUPPORTED FOR NESTED BACKWARD RUNS ###'
+            stop
+            ! See comments in writeheader.f
+          endif
+          if (( iout .eq. 4 ).or.( iout .eq. 5 )) then ! Use traj
+      write(*,*) '### NETCDF OUTPUT DOES NOT SUPPORT TRAJECTORIES ###'
+      write(*,*) '### SET IOUT TO SOMETHING OTHER THAN 4 OR 5     ###'
+            stop
+            !TODO Setup trajectory var
+          endif
+        endif !ldirect
+
+
+        ! MODEL SWITCHES (NETCDF ONLY, ascii+bin is further down)
+        ncret = nf_put_att_int(ncidn,nf_global,
+     +  'DISPERSION_METHOD',nf_int,1,method)
+        call check_ncerror(ncret)
+
+        ncret = nf_put_att_int(ncidn,nf_global,
+     +  'SUBGRID_TOPOGRAPHY',nf_int,1,lsubgrid)
+        call check_ncerror(ncret)
+
+        ncret = nf_put_att_int(ncidn,nf_global,
+     +  'CONVECTION_PARAMETERIZATION',nf_int,1,lconvection)
+        call check_ncerror(ncret)
+
+        ncret = nf_put_att_int(ncidn,nf_global,
+     +  'SUBGRID_TOPOGRAPHY',nf_int,1,lsubgrid)
+        call check_ncerror(ncret)
+
+        ncret = nf_put_att_int(ncidn,nf_global,
+     +  'NUM_RELEASES',nf_int,1,numpoint)
+        call check_ncerror(ncret)
+
+        ! Exit netcdf define mode, enter data mode
+        ncret = nf_enddef(ncidn)
+        call check_ncerror(ncret)
+
+        ! Dimension variables (netcdf)
+        ! Z-height
+        ncret = nf_put_var_real(ncidn,nclvlvid,outheight)
+        call check_ncerror(ncret)
+        ! X,Y-Lon,Lat
+        call ll_to_xymeter_wrf(outgridn_swlon,outgridn_swlat,xsw,ysw)
+        call ll_to_xymeter_wrf(outgridn_nelon,outgridn_nelat,xne,yne)
+        do jy=1,numygrid
+        do ix=1,numxgrid
+          tmpx=xsw+(xne-xsw)*float(ix-1)/float(numxgridn-1)
+          tmpy=ysw+(yne-ysw)*float(jy-1)/float(numygridn-1)
+          call xymeter_to_ll_wrf(tmpx,tmpy,tmplon,tmplat)
+          ncret = nf_put_vara_real(ncidn,nclonvid,
+     +    (/ix,jy/),(/1,1/),tmplon)
+          call check_ncerror(ncret)
+          ncret = nf_put_vara_real(ncidn,nclatvid,
+     +    (/ix,jy/),(/1,1/),tmplat)
+          call check_ncerror(ncret)
+        enddo
+        enddo
+      endif !iouttype
+
+      do 13 i=1,numpoint  ! print sources (receptors for backward runs)
+        
+        if (iomode_xycoord .eq. iomode_xycoord_latlon) then ! latlon
+          xv1(i)=releases_swlon(i)    ! use ll as is
+          yv1(i)=releases_swlat(i)    !
+          xv2(i)=releases_nelon(i)    !
+          yv2(i)=releases_nelat(i)    !
+        else                                                ! metres
+          xv1(i)=xpoint1(i)*dx+xmet0  ! easting (metres)
+          yv1(i)=ypoint1(i)*dx+ymet0  ! northing(metres)
+          xv2(i)=xpoint2(i)*dx+xmet0  !
+          yv2(i)=ypoint2(i)*dx+ymet0  !
+        endif
+        ! writeheader.f defines sources for ascii and bin here
+
+        if (iouttype.eq.2) then !netcdf
+          ncret = nf_put_vara_int(ncidn,ncstvid,   ! SourceTstart_end
+     +    (/1,i/),(/2,1/),(/ireleasestart(i),ireleaseend(i)/))
+          call check_ncerror(ncret)
+
+          ncret = nf_put_vara_real(ncidn,ncsxvid,  ! SourceXstart_end
+     +    (/1,i/),(/2,1/),(/xv1(i),xv2(i)/))
+          call check_ncerror(ncret)
+
+          ncret = nf_put_vara_real(ncidn,ncsyvid,  ! SourceYstart_end
+     +    (/1,i/),(/2,1/),(/yv1(i),yv2(i)/))
+          call check_ncerror(ncret)
+
+          ncret = nf_put_vara_real(ncidn,ncszvid,  ! SourceZstart_end
+     +    (/1,i/),(/2,1/),(/zpoint1(i),zpoint2(i)/))
+          call check_ncerror(ncret)
+
+          ncret = nf_put_vara_real(ncidn,ncsmvid,  ! SourceXMass
+     +    (/1,i/),(/nspec,1/),xmass(i,1:nspec))
+          call check_ncerror(ncret)
+
+          ncret = nf_put_vara_int(ncidn,ncspvid,  ! SourceNP
+     +    i,1,npart(i))
+          call check_ncerror(ncret)
+
+          !Source Name/Comment
+          j=1 ! Find the length of each source comment/name
+          do while( j.lt.45.and.compoint(i)(j+1:j+1).ne." ")
+            j=j+1
+          end do
+          ncret = nf_put_vara_text(ncidn,ncsnvid,   ! write to file
+     +    (/1,i/),(/j,1/),compoint(i)(1:j))
+          call check_ncerror(ncret)
+        endif !iouttype
+
+13    continue  ! do..numpoint
+
 
 C Write information on some model switches
 ******************************************
@@ -419,7 +675,7 @@ C Write topography to output file
 30    continue
       
       if(iouttype.eq.2) then          ! netcdf
-        ncret = nf_sync(ncid)   ! Save changes to file
+        ncret = nf_sync(ncidn)   ! Save changes to file
         call check_ncerror(ncret)
       else
         close(unitheader)

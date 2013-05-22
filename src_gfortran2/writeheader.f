@@ -553,7 +553,8 @@ c    +  14,'YYYYMMDDhhmmss')
             ! keep it as ascii?
           endif
           if (( iout .eq. 4 ).or.( iout .eq. 5 )) then ! Use traj
-            write(*,*)  '### NETCDF NOT SUPPORTED FOR BACKWARD RUNS ###'
+      write(*,*) '### NETCDF OUTPUT DOES NOT SUPPORT TRAJECTORIES ###'
+      write(*,*) '### SET IOUT TO SOMETHING OTHER THAN 4 OR 5     ###'
             stop
             !TODO Setup trajectory var
           endif
@@ -607,7 +608,7 @@ c    +  14,'YYYYMMDDhhmmss')
         enddo
       endif !iouttype
 
-      do 13 i=1,numpoint  ! (loop is used for binary and ascii only)
+      do 13 i=1,numpoint  ! print sources (receptors for backward runs)
 
 C New method
         if (iomode_xycoord .eq. iomode_xycoord_latlon) then ! latlon
@@ -669,7 +670,6 @@ C       endif
      +    (/1,i/),(/2,1/),(/yv1(i),yv2(i)/))
           call check_ncerror(ncret)
 
-          write(*,*) zpoint1(i),zpoint2(i)
           ncret = nf_put_vara_real(ncid,ncszvid,  ! SourceZstart_end
      +    (/1,i/),(/2,1/),(/zpoint1(i),zpoint2(i)/))
           call check_ncerror(ncret)
@@ -687,10 +687,10 @@ C       endif
           do while( j.lt.45.and.compoint(i)(j+1:j+1).ne." ")
             j=j+1
           end do
-            ncret = nf_put_vara_text(ncid,ncsnvid,   ! write to file
-     +      (/1,i/),(/j,1/),compoint(i)(1:j))
-            call check_ncerror(ncret)
-        endif
+          ncret = nf_put_vara_text(ncid,ncsnvid,   ! write to file
+     +    (/1,i/),(/j,1/),compoint(i)(1:j))
+          call check_ncerror(ncret)
+        endif !iouttype
 
 13    continue  ! do..numpoint
 

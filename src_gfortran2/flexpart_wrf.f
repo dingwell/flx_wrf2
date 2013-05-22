@@ -98,6 +98,7 @@ c Nested grid output is not fully implemented in FLEXPART or FLEXPART_WRF
      &        '*** Nested grid output is not fully implemented  ***',
      &        '*** using NESTED_OUTPUT=1 in COMMAND file        ***',
      &        '*** is unstable, proceed with caution!           ***'
+          call readoutgrid_nest()
 c         stop
       end if
 
