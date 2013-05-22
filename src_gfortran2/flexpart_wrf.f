@@ -96,8 +96,9 @@ c Nested grid output is not fully implemented in FLEXPART or FLEXPART_WRF
       if (nested_output.ge.1) then
           write(*,'(/a/a/)') 
      &        '*** Nested grid output is not fully implemented  ***',
-     &        '*** Set NESTED_OUTPUT=0 in COMMAND file          ***'
-          stop
+     &        '*** using NESTED_OUTPUT=1 in COMMAND file        ***',
+     &        '*** is unstable, proceed with caution!           ***'
+c         stop
       end if
 
 
