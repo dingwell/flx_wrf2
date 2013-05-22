@@ -9,17 +9,25 @@ FLEXPART is free software released under the GNU General Public License V3.0
 FLEXPART_WRF
 -------------
 
-FLEXPART v 6.xx was adapted by Jerome Fast of PNNL to work with the Weather Research and Forecast (WRF) model. The source code and utilities provided here
-and based on FLXPART_WRF.  Further details of FLEXPART_WRF can be found in
-the references listed below.
+FLEXPART v 6.xx was adapted by Jerome Fast of PNNL to work with the Weather Research and Forecast (WRF) model. The source code and utilities provided here are based on FLXPART_WRF.  Further details of FLEXPART_WRF can be found in the references listed below.
 
-We hope to continue the work started by Jerome Fast and the FLEXPART WRF team
-to make it work easily with WRF. Things that would need immediate attention
-are:
+We aim to continue the work started by Jerome Fast and the FLEXPART WRF team to make the model work easily with WRF. Things that would need immediate attention are:
 
 1. Inclusion of spatially varing Map factors
-2. Making Wet deposition work
-3. Making warm restart work
+2. Making warm restart work
+
+Partially supported features:
+* NetCDF output format  - working for absolute fields but not yet for
+                          standard deviation/errors
+* Nested output data    - working for netcdf, not tested for ascii or
+                          fortran binaries
+
+Features considered working and stable:
+* Wet deposition        - Now uses the same scheme as FLEXPART 9.0
+                          however, it is quite heavy on disk access
+                          which can be an issue when making many
+                          parallell runs.
+
 
 Provided below are some Ruby and NCL scripts that would ease working with
 FLEXPART_WRF input and output. 
