@@ -33,12 +33,12 @@ c     real ylat,gridarea,ylatp,ylatm,hzone,cosfact,cosfactm,cosfactp
       real xmet,xl,yl,ddx,ddy,rddx,rddy,p1,p2,p3,p4,xtn,ytn,oroh
 
 
-      write(*,*)
-      write(*,*) '*** stopping in outgrid_init_nest ***'
-      write(*,*) 
-     &    '    the wrf version of this routine is not yet implemented'
-      write(*,*)
-      stop
+c     write(*,*)
+c     write(*,*) '*** stopping in outgrid_init_nest ***'
+c     write(*,*) 
+c    &    '    the wrf version of this routine is not yet implemented'
+c     write(*,*)
+c     stop
 
 
 C Compute surface area and volume of each grid cell: area, volume;
@@ -75,7 +75,8 @@ c***********************************************
 c
 
 c for FLEXPART_WRF, dx & dy are in meters, and no cos(lat) is needed
-c        gridarea=2.*pi*r_earth*hzone*dxoutn/360.
+c ??? maybe should incorporate map factor here,
+c     and also for areaeast & areanorth ???
         gridarea=dxoutn*dyoutn
 
         do 10 ix=0,numxgridn-1
@@ -85,8 +86,19 @@ C Volume = area x box height
 ****************************
 
           volumen(ix,jy,1)=arean(ix,jy)*outheight(1)
+          if( iflux.eq.1 ) then
+            write(*,*)
+     +      "*** Flux surfaces not yet supported for nested output ***",
+     +      "*** Set IFLUX=0 or NESTED_OUTPUT=0 in COMMAND         ***"
+            stop
+          endif
+          ! outgrid_init.f also calculates areaeast/areanorth here...
+
           do 10 kz=2,numzgrid
-10        volumen(ix,jy,kz)=arean(ix,jy)*(outheight(kz)-outheight(kz-1))
+            ! outgrid_init.f also calculates areaeast/areanorth here...
+10          volumen(ix,jy,kz)=arean(ix,jy)
+     +        *(outheight(kz)-outheight(kz-1))
+
 
 
 ***************************************************************************
@@ -176,6 +188,7 @@ C Initialization of output grids
 ********************************
 
       do 31 k=1,nspec
+        ! Receptors handled in outgrid_init.f
         do 31 nage=1,nageclass
           do 31 jy=0,numygridn-1
             do 31 ix=0,numxgridn-1
@@ -185,6 +198,7 @@ C Deposition fields
                 drygriduncn(ix,jy,k,l,nage)=0.
 C Concentration fields
                 do 31 kz=1,numzgrid
+                  ! flux fields handled here in outgrid_init.f
 31                griduncn(ix,jy,kz,k,l,nage)=0.
 
  
