@@ -819,7 +819,8 @@ C rannumb                 field of normally distributed random numbers
      +ind_rel,ind_samp,
      +turb_option,method_w_terrain_correction,
      +map_proj_id,map_proj_method,sfc_option,iouttype,
-     +ncid,ncidn,nccovid,ncravid,ncwdvid,ncddvid,
+     +ncid,ncidn,nccovid,nccovidn,ncravid,ncravidn,ncwdvid,ncwdvidn,
+     +ncddvid,ncddvidn,
      +clouds,cloudsn
 
       common /globalr/             ! REAL

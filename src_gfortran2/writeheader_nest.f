@@ -486,6 +486,7 @@ C start, end, coordinates, # of particles, name, mass
 
           ncret = nf_def_var(ncidn,'WETDEP',NF_REAL, ! Wet deposition
      +    5,(/nclonid,nclatid,ncspcid,ncageid,ncrecid/),ncwdvidn)
+          write(*,*) "DEBUG - ncwdvidn:",ncwdvidn
           call check_ncerror(ncret)
           ncret = nf_put_att_text(ncidn,ncwdvidn,descr,
      +    32,'ACCUMULATED TOTAL WET DEPOSITION')
@@ -681,6 +682,7 @@ C Write topography to output file
         close(unitheader)
       endif
 
+          write(*,*) "DEBUG - ncwdvidn:",ncwdvidn
       return
 
 
