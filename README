@@ -5,6 +5,8 @@ The FLEXPART model is a Lagrangian Particle Dispersion Model developed at the No
 
 FLEXPART is free software released under the GNU General Public License V3.0
 
+It should be noted that there is a parallel project at www.flexpart.eu which has already addressed some of the issues below, the two projects have taken different directions in the development.
+
 
 FLEXPART_WRF
 -------------
